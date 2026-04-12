@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from app.models.schemas import ResumeStructuredData
 from app.services.embedding_service import EmbeddingService
 from app.services.vector_store import VectorStoreService

@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from weasyprint import CSS, HTML
 
 
 class PDFService:
@@ -14,6 +15,8 @@ class PDFService:
         self.template_dir = template_dir
 
     def render_pdf(self, context: dict, output_path: Path) -> Path:
+        from weasyprint import CSS, HTML
+
         html_template = self.environment.get_template("resume.html")
         styles = (self.template_dir / "styles.css").read_text(encoding="utf-8")
         html = html_template.render(**context)

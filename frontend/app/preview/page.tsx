@@ -40,6 +40,7 @@ export default function PreviewPage() {
                 className="rounded-full bg-ink px-6 py-3 text-sm font-medium text-white"
                 href={resolvePdfUrl(generated.pdf_download_url)}
                 target="_blank"
+                rel="noreferrer"
               >
                 Download PDF
               </a>

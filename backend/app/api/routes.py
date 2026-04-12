@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import json
 import logging
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
@@ -56,7 +59,8 @@ async def upload_resume(
     elif resume_file:
         suffix = Path(resume_file.filename or "resume.pdf").suffix.lower()
         actual_source_type = "docx" if suffix == ".docx" else source_type
-        file_path = upload_dir / (resume_file.filename or f"resume{suffix or '.pdf'}")
+        fallback_name = f"resume{suffix or '.pdf'}"
+        file_path = upload_dir / f"{datetime.utcnow().strftime('%Y%m%d%H%M%S')}-{resume_file.filename or fallback_name}"
         file_path.write_bytes(await resume_file.read())
         raw_text, parsed_resume = parser.parse_file(file_path, actual_source_type)
         original_filename = resume_file.filename
@@ -64,7 +68,7 @@ async def upload_resume(
         raise HTTPException(status_code=400, detail="Provide either resume_file or linkedin_json.")
 
     if profile_image:
-        image_path = upload_dir / (profile_image.filename or "profile.png")
+        image_path = upload_dir / f"{datetime.utcnow().strftime('%Y%m%d%H%M%S')}-{profile_image.filename or 'profile.png'}"
         image_path.write_bytes(await profile_image.read())
 
     image_caption = llm_service.describe_image(image_path) if image_path else None
