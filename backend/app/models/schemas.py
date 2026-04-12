@@ -1,0 +1,72 @@
+from typing import Any
+
+from pydantic import BaseModel, Field
+
+
+class ContactInfo(BaseModel):
+    email: str | None = None
+    phone: str | None = None
+    location: str | None = None
+    linkedin: str | None = None
+    website: str | None = None
+
+
+class ExperienceEntry(BaseModel):
+    title: str
+    company: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+    bullets: list[str] = Field(default_factory=list)
+
+
+class EducationEntry(BaseModel):
+    institution: str
+    degree: str | None = None
+    graduation_date: str | None = None
+
+
+class ResumeStructuredData(BaseModel):
+    name: str | None = None
+    headline: str | None = None
+    contact: ContactInfo = Field(default_factory=ContactInfo)
+    summary: str | None = None
+    skills: list[str] = Field(default_factory=list)
+    experience: list[ExperienceEntry] = Field(default_factory=list)
+    education: list[EducationEntry] = Field(default_factory=list)
+    certifications: list[str] = Field(default_factory=list)
+    projects: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class UploadResumeResponse(BaseModel):
+    resume_id: int
+    parsed_resume: ResumeStructuredData
+    image_caption: str | None = None
+
+
+class AnalyzeJobRequest(BaseModel):
+    resume_id: int
+    job_title: str | None = None
+    company: str | None = None
+    job_description: str
+
+
+class AnalyzeJobResponse(BaseModel):
+    job_id: int
+    semantic_score: float
+    matched_skills: list[str]
+    missing_skills: list[str]
+    relevant_experience: list[dict[str, Any]]
+    recommendations: list[str]
+
+
+class GenerateResumeRequest(BaseModel):
+    resume_id: int
+    job_id: int
+    tone: str = "professional"
+    additional_context: str | None = None
+
+
+class GenerateResumeResponse(BaseModel):
+    output_id: int
+    optimized_resume: dict[str, Any]
+    pdf_download_url: str
