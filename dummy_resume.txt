@@ -1,0 +1,11 @@
+John Doe
+Email: john.doe@example.com
+Phone: 123-456-7890
+
+Experience
+Software Engineer at Acme Corp (2020 - Present)
+- Developed AI resume parser using Python and FastAPI
+- Implemented frontend with React and Next.js
+
+Education
+B.S. in Computer Science, University of Technology (2016-2020)

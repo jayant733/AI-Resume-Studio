@@ -17,6 +17,12 @@ class Settings(BaseSettings):
     vector_store_path: str = str(Path("data") / "chroma")
     upload_dir: str = str(Path("data") / "uploads")
     generated_dir: str = str(Path("data") / "generated")
+    
+    # Mock Stripe
+    stripe_api_key: str = "sk_test_mock"
+    stripe_webhook_secret: str = "whsec_mock"
+    stripe_price_pro: str = "price_pro_mock"
+    stripe_price_premium: str = "price_premium_mock"
 
     model_config = SettingsConfigDict(
         env_file=".env",

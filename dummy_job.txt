@@ -1,0 +1,5 @@
+Software Engineer
+Requirements:
+- Python, FastAPI
+- React, Next.js
+- Experience with AI or Machine Learning is a plus.
