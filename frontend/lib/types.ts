@@ -53,6 +53,54 @@ export type GeneratedResume = {
   pdf_download_url: string;
 };
 
+// Async job tracking
+export type GenerateJobResponse = {
+  job_id: number;
+};
+
+export type JobStatusResponse = {
+  job_id: number;
+  status: "queued" | "processing" | "done" | "failed";
+  error?: string | null;
+  result?: GeneratedResume | null;
+};
+
+// ATS Scoring
+export type ATSScoreDimension = {
+  score: number;
+  label: string;
+  detail: string;
+};
+
+export type ATSScoreResponse = {
+  total_score: number;
+  keyword_density: ATSScoreDimension;
+  action_verb_rate: ATSScoreDimension;
+  quantification_rate: ATSScoreDimension;
+  section_completeness: ATSScoreDimension;
+  improvement_tips: string[];
+};
+
+// Cover Letter
+export type CoverLetterResponse = {
+  cover_letter_text: string;
+  pdf_download_url: string;
+};
+
+// Scraper
+export type ScrapeJobResponse = {
+  title: string | null;
+  company: string | null;
+  description: string;
+  parsed: Record<string, unknown>;
+};
+
+// Diff view
+export type DiffResponse = {
+  original: Record<string, unknown>;
+  optimized: Record<string, unknown>;
+};
+
 export type AppState = {
   upload?: UploadResponse;
   job?: JobAnalysis;
