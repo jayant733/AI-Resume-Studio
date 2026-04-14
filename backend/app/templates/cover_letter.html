@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Cover Letter – {{ name }}</title>
+  </head>
+  <body>
+    <main class="page">
+      <header class="cl-header">
+        <h1>{{ name }}</h1>
+        <p class="date-line">{{ date }}</p>
+      </header>
+
+      <section class="recipient">
+        <p>Hiring Manager</p>
+        <p>{{ company }}</p>
+        <p>Re: {{ job_title }}</p>
+      </section>
+
+      <section class="body-text">
+        {% for paragraph in cover_letter_text.split('\n\n') %}
+        <p>{{ paragraph }}</p>
+        {% endfor %}
+      </section>
+    </main>
+  </body>
+</html>
