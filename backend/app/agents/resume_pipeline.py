@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Generator
 
 from app.models.schemas import ResumeStructuredData
 from app.services.embedding_service import EmbeddingService
@@ -26,6 +26,7 @@ class ResumeOptimizationAgent:
         additional_context: str | None,
         output_path: Path,
         image_caption: str | None,
+        template_id: str = "classic",
     ) -> dict[str, Any]:
         relevant_fragments = self._retrieve_relevant_fragments(resume_id, job_data)
         optimized = self.llm_service.optimize_resume(
@@ -39,7 +40,7 @@ class ResumeOptimizationAgent:
         optimized["headline"] = resume_data.headline
         optimized["contact"] = resume_data.contact.model_dump()
         optimized["image_caption"] = image_caption
-        self.pdf_service.render_pdf(optimized, output_path)
+        self.pdf_service.render_pdf(optimized, output_path, template_id=template_id)
         return optimized
 
     def _retrieve_relevant_fragments(self, resume_id: int, job_data: dict[str, Any]) -> list[str]:
@@ -49,3 +50,21 @@ class ResumeOptimizationAgent:
         query_embedding = self.embedding_service.embed_text(" ".join(fragments[:8]))
         retrieval = self.vector_store.query_resume_fragments(query_embedding, resume_id=resume_id, limit=6)
         return retrieval.get("documents", [[]])[0]
+
+    def run_streaming(
+        self,
+        resume_id: int,
+        resume_data: Any,
+        job_data: dict[str, Any],
+        tone: str,
+        additional_context: str | None,
+    ) -> Generator[str, None, None]:
+        """Yield raw text chunks of the optimized resume JSON for SSE streaming."""
+        relevant_fragments = self._retrieve_relevant_fragments(resume_id, job_data)
+        yield from self.llm_service.stream_optimize_resume(
+            resume_data=resume_data,
+            job_data=job_data,
+            relevant_fragments=relevant_fragments,
+            tone=tone,
+            additional_context=additional_context,
+        )

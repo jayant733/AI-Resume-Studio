@@ -50,7 +50,7 @@ class DocumentParserService:
                 linkedin=basics.get("publicIdentifier"),
                 location=basics.get("locationName"),
             ),
-            skills=[skill.get("name") for skill in payload.get("skills", []) if skill.get("name")],
+            skills=[skill.get("name") if isinstance(skill, dict) else skill for skill in payload.get("skills", []) if (isinstance(skill, dict) and skill.get("name")) or (isinstance(skill, str) and skill.strip())],
             experience=experience,
             education=education,
         )

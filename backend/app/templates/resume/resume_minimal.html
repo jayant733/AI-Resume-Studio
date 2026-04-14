@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>{{ name }} - Resume (Minimal)</title>
+  </head>
+  <body>
+    <main class="page minimal">
+      <header>
+        <h1>{{ name }}</h1>
+        {% if headline %}<p class="tagline">{{ headline }}</p>{% endif %}
+        <p class="contacts">
+          {% if contact.email %}{{ contact.email }}{% endif %}
+          {% if contact.phone %}&nbsp;&middot;&nbsp;{{ contact.phone }}{% endif %}
+          {% if contact.linkedin %}&nbsp;&middot;&nbsp;{{ contact.linkedin }}{% endif %}
+          {% if contact.location %}&nbsp;&middot;&nbsp;{{ contact.location }}{% endif %}
+        </p>
+      </header>
+
+      <hr />
+
+      {% if summary %}
+      <section>
+        <p class="summary-text">{{ summary }}</p>
+      </section>
+      <hr />
+      {% endif %}
+
+      {% if skills %}
+      <section>
+        <h2>Skills</h2>
+        <p class="skills-line">{{ skills | join(" &nbsp;·&nbsp; ") }}</p>
+      </section>
+      <hr />
+      {% endif %}
+
+      {% if experience %}
+      <section>
+        <h2>Experience</h2>
+        {% for item in experience %}
+        <div class="exp-block">
+          <div class="exp-title-row">
+            <span class="role">{{ item.title }}</span>
+            {% if item.company %}<span class="company-name">{{ item.company }}</span>{% endif %}
+            {% if item.start_date or item.end_date %}
+            <span class="dates">{{ item.start_date or '' }}{% if item.start_date and item.end_date %}–{% endif %}{{ item.end_date or 'Present' }}</span>
+            {% endif %}
+          </div>
+          <ul>
+            {% for bullet in item.bullets %}<li>{{ bullet }}</li>{% endfor %}
+          </ul>
+        </div>
+        {% endfor %}
+      </section>
+      <hr />
+      {% endif %}
+
+      {% if education %}
+      <section>
+        <h2>Education</h2>
+        {% for item in education %}
+        <div class="exp-block">
+          <div class="exp-title-row">
+            <span class="role">{{ item.institution }}</span>
+            {% if item.degree %}<span class="company-name">{{ item.degree }}</span>{% endif %}
+            {% if item.graduation_date %}<span class="dates">{{ item.graduation_date }}</span>{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </section>
+      {% endif %}
+
+      {% if certifications %}
+      <hr />
+      <section>
+        <h2>Certifications</h2>
+        <p>{{ certifications | join(" · ") }}</p>
+      </section>
+      {% endif %}
+    </main>
+  </body>
+</html>

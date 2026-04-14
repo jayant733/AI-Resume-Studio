@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import AnyHttpUrl, BaseModel, Field
 
 
 class ContactInfo(BaseModel):
@@ -66,9 +66,66 @@ class GenerateResumeRequest(BaseModel):
     job_id: int
     tone: str = "professional"
     additional_context: str | None = None
+    template_id: str = "classic"
 
 
 class GenerateResumeResponse(BaseModel):
     output_id: int
     optimized_resume: dict[str, Any]
+    pdf_download_url: str
+
+
+# --- Async job tracking ---
+
+class GenerateJobResponse(BaseModel):
+    job_id: int
+
+
+class JobStatusResponse(BaseModel):
+    job_id: int
+    status: str  # queued | processing | done | failed
+    error: str | None = None
+    result: GenerateResumeResponse | None = None
+
+
+# --- ATS Scoring ---
+
+class ATSScoreDimension(BaseModel):
+    score: float
+    label: str
+    detail: str
+
+
+class ATSScoreResponse(BaseModel):
+    total_score: int
+    keyword_density: ATSScoreDimension
+    action_verb_rate: ATSScoreDimension
+    quantification_rate: ATSScoreDimension
+    section_completeness: ATSScoreDimension
+    improvement_tips: list[str]
+
+
+# --- Job Scraper ---
+
+class ScrapeJobRequest(BaseModel):
+    url: AnyHttpUrl
+
+
+class ScrapeJobResponse(BaseModel):
+    title: str | None
+    company: str | None
+    description: str
+    parsed: dict[str, Any]
+
+
+# --- Cover Letter ---
+
+class CoverLetterRequest(BaseModel):
+    resume_id: int
+    job_id: int
+    tone: str = "professional"
+
+
+class CoverLetterResponse(BaseModel):
+    cover_letter_text: str
     pdf_download_url: str

@@ -1,0 +1,150 @@
+/* ===== MODERN TEMPLATE OVERRIDES ===== */
+body {
+  font-family: Georgia, serif;
+  color: #1a1a2e;
+  font-size: 10.5px;
+}
+
+.page {
+  display: flex;
+  flex-direction: row;
+  min-height: 100%;
+}
+
+.sidebar {
+  width: 30%;
+  background: #1a1a2e;
+  color: #e8e8f0;
+  padding: 28px 16px;
+  box-sizing: border-box;
+}
+
+.sidebar h1 {
+  font-size: 18px;
+  color: #ffffff;
+  margin: 0 0 4px 0;
+  line-height: 1.2;
+}
+
+.sidebar .headline {
+  font-size: 9px;
+  color: #9ab0d0;
+  margin: 0 0 18px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.sidebar-section {
+  margin-top: 18px;
+}
+
+.sidebar h2 {
+  font-size: 8px;
+  font-family: Arial, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #7ba7d4;
+  border-bottom: 1px solid #2d3a5c;
+  padding-bottom: 4px;
+  margin-bottom: 8px;
+}
+
+.sidebar p {
+  font-size: 9px;
+  color: #c8d4e8;
+  margin: 3px 0;
+  word-break: break-word;
+}
+
+.skill-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.skill-list li {
+  font-size: 9px;
+  color: #c8d4e8;
+  padding: 2px 0;
+  border-left: 2px solid #3d5a8a;
+  padding-left: 6px;
+  margin-bottom: 3px;
+}
+
+.edu-entry {
+  margin-bottom: 8px;
+}
+
+.edu-entry strong {
+  font-size: 9px;
+  color: #e8e8f0;
+}
+
+.edu-entry p {
+  font-size: 8.5px;
+  margin: 1px 0;
+}
+
+.edu-entry .date {
+  color: #7ba7d4;
+}
+
+.main {
+  width: 70%;
+  padding: 28px 22px;
+  box-sizing: border-box;
+}
+
+.main h2 {
+  font-family: Arial, sans-serif;
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #1a1a2e;
+  border-bottom: 2px solid #1a1a2e;
+  padding-bottom: 3px;
+  margin-bottom: 10px;
+}
+
+.main section {
+  margin-bottom: 16px;
+}
+
+.entry {
+  margin-bottom: 11px;
+}
+
+.entry-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.entry-header strong {
+  font-size: 11px;
+  color: #1a1a2e;
+}
+
+.company {
+  display: block;
+  font-size: 9.5px;
+  color: #555;
+  margin-top: 1px;
+}
+
+.date {
+  font-size: 8.5px;
+  color: #777;
+  white-space: nowrap;
+}
+
+ul {
+  margin: 5px 0 0 15px;
+  padding: 0;
+}
+
+ul li {
+  font-size: 9.5px;
+  line-height: 1.5;
+  margin-bottom: 2px;
+}
