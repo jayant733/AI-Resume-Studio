@@ -190,3 +190,32 @@ class ResumeClaimDetectionRequest(BaseModel):
 
 class ResumeClaimDetectionResponse(BaseModel):
     analysis: list[ResumeClaimAnalysisItem]
+
+
+class JobApplicationRequest(BaseModel):
+    resume_id: int | None = None
+    resume_json: ResumeStructuredData | None = None
+    job_url: AnyHttpUrl
+    tone: str = "professional"
+    template_id: str = "classic"
+    mock_mode: bool = True
+    store_applied_job: bool = True
+
+
+class JobApplicationResponse(BaseModel):
+    status: str
+    resume_version: dict[str, Any]
+    cover_letter: str
+    job_title: str | None = None
+    company: str | None = None
+    applied_job_id: int | None = None
+    autofill_fields: dict[str, Any] | None = None
+
+
+class AppliedJobSummary(BaseModel):
+    id: int
+    job_title: str | None = None
+    company: str | None = None
+    job_url: str
+    status: str
+    created_at: str

@@ -4,18 +4,21 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
+from typing import List
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.agents.resume_pipeline import ResumeOptimizationAgent
+from app.agents.job_application_agent import JobApplicationAgent
 from app.db.session import get_db
-from app.db.tables import GeneratedOutput, GenerationJob, Job, Resume, User
+from app.db.tables import AppliedJob, GeneratedOutput, GenerationJob, Job, Resume, User
 from app.models.schemas import (
     AnalyzeJobRequest,
     AnalyzeJobResponse,
     ATSScoreResponse,
+    AppliedJobSummary,
     CoverLetterRequest,
     CoverLetterResponse,
     GenerateJobResponse,
@@ -24,6 +27,8 @@ from app.models.schemas import (
     InterviewQuestionRequest,
     InterviewQuestionResponse,
     JobStatusResponse,
+    JobApplicationRequest,
+    JobApplicationResponse,
     ResumeStructuredData,
     ResumeClaimDetectionRequest,
     ResumeClaimDetectionResponse,
@@ -214,6 +219,90 @@ def detect_resume_claims(payload: ResumeClaimDetectionRequest):
         raise HTTPException(status_code=400, detail="No resume bullets or achievement statements could be extracted.")
     result = llm.analyze_resume_claims(bullets)
     return ResumeClaimDetectionResponse(**result)
+
+
+@router.post("/apply-to-job", response_model=JobApplicationResponse)
+def apply_to_job(
+    payload: JobApplicationRequest,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    if payload.resume_id:
+        resume = db.query(Resume).filter(Resume.id == payload.resume_id).first()
+        if not resume:
+            raise HTTPException(status_code=404, detail="Resume not found.")
+        if resume.user_id and (not current_user or resume.user_id != current_user.id):
+            raise HTTPException(status_code=403, detail="You do not have access to this resume.")
+        resume_data = ResumeStructuredData(**resume.parsed_data)
+        resume_id = resume.id
+    elif payload.resume_json:
+        resume_data = payload.resume_json
+        resume_id = None
+    else:
+        raise HTTPException(status_code=400, detail="Provide either resume_id or resume_json.")
+
+    agent = JobApplicationAgent()
+    result = agent.run(
+        resume_data=resume_data,
+        job_url=str(payload.job_url),
+        tone=payload.tone,
+        resume_id=resume_id,
+    )
+
+    applied_job_id = None
+    if payload.store_applied_job:
+        applied_job = AppliedJob(
+            user_id=current_user.id if current_user else None,
+            resume_id=resume_id,
+            job_url=str(payload.job_url),
+            job_title=result.get("job_title"),
+            company=result.get("company"),
+            status="applied" if payload.mock_mode else "prepared",
+            optimized_resume_json=result["resume_version"],
+            cover_letter_text=result["cover_letter"],
+            autofill_fields=result.get("autofill_fields"),
+            notes="Mock application flow completed." if payload.mock_mode else "Application prepared, not submitted.",
+        )
+        db.add(applied_job)
+        db.commit()
+        db.refresh(applied_job)
+        applied_job_id = applied_job.id
+
+    return JobApplicationResponse(
+        status="applied" if payload.mock_mode else "prepared",
+        resume_version=result["resume_version"],
+        cover_letter=result["cover_letter"],
+        job_title=result.get("job_title"),
+        company=result.get("company"),
+        applied_job_id=applied_job_id,
+        autofill_fields=result.get("autofill_fields"),
+    )
+
+
+@router.get("/applied-jobs", response_model=List[AppliedJobSummary])
+def list_applied_jobs(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_optional_current_user),
+):
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    jobs = (
+        db.query(AppliedJob)
+        .filter(AppliedJob.user_id == current_user.id)
+        .order_by(AppliedJob.created_at.desc())
+        .all()
+    )
+    return [
+        AppliedJobSummary(
+            id=item.id,
+            job_title=item.job_title,
+            company=item.company,
+            job_url=item.job_url,
+            status=item.status,
+            created_at=item.created_at.isoformat(),
+        )
+        for item in jobs
+    ]
 
 
 # ---------------------------------------------------------------------------

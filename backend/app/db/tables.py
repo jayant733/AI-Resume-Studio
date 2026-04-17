@@ -22,6 +22,7 @@ class User(Base):
 
     resumes = relationship("Resume", back_populates="user")
     chat_messages = relationship("ChatMessage", back_populates="user")
+    applied_jobs = relationship("AppliedJob", back_populates="user")
 
 
 class Resume(Base):
@@ -90,3 +91,22 @@ class ChatMessage(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="chat_messages")
+
+
+class AppliedJob(Base):
+    __tablename__ = "applied_jobs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    resume_id: Mapped[Optional[int]] = mapped_column(ForeignKey("resumes.id"), nullable=True)
+    job_url: Mapped[str] = mapped_column(String(1000))
+    job_title: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    company: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    status: Mapped[str] = mapped_column(String(50), default="applied")
+    optimized_resume_json: Mapped[dict] = mapped_column(JSON)
+    cover_letter_text: Mapped[str] = mapped_column(Text)
+    autofill_fields: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="applied_jobs")
