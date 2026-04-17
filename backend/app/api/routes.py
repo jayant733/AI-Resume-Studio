@@ -25,6 +25,8 @@ from app.models.schemas import (
     InterviewQuestionResponse,
     JobStatusResponse,
     ResumeStructuredData,
+    ResumeClaimDetectionRequest,
+    ResumeClaimDetectionResponse,
     ScrapeJobRequest,
     ScrapeJobResponse,
     TellMeAboutYourselfRequest,
@@ -201,6 +203,17 @@ def generate_tell_me_about_yourself(payload: TellMeAboutYourselfRequest):
         target_job_role=payload.target_job_role,
     )
     return TellMeAboutYourselfResponse(**result)
+
+
+@router.post("/detect-resume-claims", response_model=ResumeClaimDetectionResponse)
+def detect_resume_claims(payload: ResumeClaimDetectionRequest):
+    parser = DocumentParserService()
+    llm = LLMService()
+    bullets = parser.extract_resume_bullets(payload.resume_text)
+    if not bullets:
+        raise HTTPException(status_code=400, detail="No resume bullets or achievement statements could be extracted.")
+    result = llm.analyze_resume_claims(bullets)
+    return ResumeClaimDetectionResponse(**result)
 
 
 # ---------------------------------------------------------------------------

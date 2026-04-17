@@ -70,6 +70,31 @@ class DocumentParserService:
             "responsibilities": responsibilities,
         }
 
+    def extract_resume_bullets(self, raw_text: str) -> list[str]:
+        bullets = []
+        for line in raw_text.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if stripped.startswith(("-", "•", "*")):
+                cleaned = stripped.lstrip("-•* ").strip()
+                if cleaned:
+                    bullets.append(cleaned)
+        if bullets:
+            return bullets[:30]
+
+        inferred = []
+        for line in raw_text.splitlines():
+            stripped = line.strip()
+            if 20 <= len(stripped) <= 220 and not stripped.endswith(":"):
+                lowered = stripped.lower()
+                if any(
+                    token in lowered
+                    for token in ["built", "developed", "improved", "managed", "led", "designed", "implemented", "created", "optimized"]
+                ):
+                    inferred.append(stripped)
+        return inferred[:20]
+
     def _extract_text(self, file_path: Path, source_type: str) -> str:
         if source_type == "pdf":
             with fitz.open(file_path) as document:

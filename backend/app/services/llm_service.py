@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import re
 import time
 from pathlib import Path
 from typing import Any, Generator
@@ -316,6 +317,47 @@ Return ONLY valid JSON:
         )
         return json.loads(response.output_text.strip())
 
+    def analyze_resume_claims(self, bullets: list[str]) -> dict[str, list[dict[str, str]]]:
+        if not self.client:
+            return {"analysis": [self._fallback_claim_analysis(bullet) for bullet in bullets]}
+
+        prompt = f"""
+You are a resume-quality and credibility reviewer.
+
+Given the following resume bullets, classify each one as exactly one of:
+- strong
+- weak
+- suspicious
+
+Review criteria:
+1. Flag vague claims such as "improved performance significantly"
+2. Flag unrealistic or inflated metrics such as extreme percentages or impossible impact
+3. Flag missing evidence, including:
+   - no numbers
+   - no tools or technologies
+   - no context about what was improved or built
+
+Bullets:
+{json.dumps(bullets, indent=2)}
+
+Return ONLY valid JSON:
+{{
+  "analysis": [
+    {{
+      "bullet": "...",
+      "label": "weak",
+      "reason": "missing quantification"
+    }}
+  ]
+}}
+"""
+        response = self.client.responses.create(
+            model=self.model,
+            input=[{"role": "user", "content": [{"type": "input_text", "text": prompt}]}],
+            text={"format": {"type": "json_object"}},
+        )
+        return json.loads(response.output_text.strip())
+
     def stream_chat(self, user_message: str, chat_history: list[dict], resume_data: ResumeStructuredData | None) -> Generator[str, None, None]:
         """Stream chat completions for the AI Career Assistant."""
         if not self.client:
@@ -472,3 +514,66 @@ Return ONLY valid JSON:
             f"I’d say that experience has naturally prepared me for a {target_job_role} role, because it has taught me how to learn quickly, contribute across the stack, and stay focused on outcomes. "
             f"At this stage, I’m looking for an opportunity where I can bring that background into a stronger {target_job_role} position and keep growing by taking on deeper ownership and more challenging problems."
         )
+
+    def _fallback_claim_analysis(self, bullet: str) -> dict[str, str]:
+        lowered = bullet.lower()
+        numbers = re.findall(r"\b\d+(?:\.\d+)?%?\b", bullet)
+        has_number = len(numbers) > 0
+        has_tool = bool(re.search(r"\b(python|java|sql|aws|docker|kubernetes|react|fastapi|postgresql|spark|tensorflow|excel|tableau|api)\b", lowered))
+        has_context = bool(re.search(r"\b(system|service|pipeline|dashboard|application|model|api|database|platform|process|feature|product)\b", lowered))
+        vague_terms = ["significantly", "various", "many", "multiple", "several", "large", "huge", "major"]
+        has_vague = any(term in lowered for term in vague_terms)
+
+        suspicious = False
+        suspicious_reason = ""
+        for token in numbers:
+            if token.endswith("%"):
+                try:
+                    value = float(token[:-1])
+                except ValueError:
+                    continue
+                if value >= 1000:
+                    suspicious = True
+                    suspicious_reason = "unrealistic metric"
+                    break
+        if "revenue by 5000%" in lowered or "100x" in lowered or "1000x" in lowered:
+            suspicious = True
+            suspicious_reason = "unrealistic metric"
+
+        if suspicious:
+            return {
+                "bullet": bullet,
+                "label": "suspicious",
+                "reason": suspicious_reason or "metric appears inflated",
+            }
+
+        if not has_number and not has_tool and not has_context:
+            return {
+                "bullet": bullet,
+                "label": "weak",
+                "reason": "missing numbers, tools, and context",
+            }
+        if has_vague and not has_number:
+            return {
+                "bullet": bullet,
+                "label": "weak",
+                "reason": "vague claim without quantification",
+            }
+        if not has_number:
+            return {
+                "bullet": bullet,
+                "label": "weak",
+                "reason": "missing quantification",
+            }
+        if not has_tool and not has_context:
+            return {
+                "bullet": bullet,
+                "label": "weak",
+                "reason": "missing tools and context",
+            }
+
+        return {
+            "bullet": bullet,
+            "label": "strong",
+            "reason": "specific claim with supporting context",
+        }

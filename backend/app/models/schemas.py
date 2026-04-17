@@ -176,3 +176,17 @@ class TellMeAboutYourselfRequest(BaseModel):
 
 class TellMeAboutYourselfResponse(BaseModel):
     answer: str
+
+
+class ResumeClaimAnalysisItem(BaseModel):
+    bullet: str
+    label: str
+    reason: str
+
+
+class ResumeClaimDetectionRequest(BaseModel):
+    resume_text: str
+
+
+class ResumeClaimDetectionResponse(BaseModel):
+    analysis: list[ResumeClaimAnalysisItem]
