@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FileText, Sparkles, Target, UploadCloud, CreditCard, LogIn } from "lucide-react";
+import { FileText, Sparkles, Target, UploadCloud, CreditCard, LogIn, Users } from "lucide-react";
 import { ReactNode } from "react";
 import { Chatbot } from "./chatbot";
 
@@ -8,6 +8,7 @@ const navItems = [
   { href: "/job", label: "Job Match", icon: Target },
   { href: "/suggestions", label: "Suggestions", icon: Sparkles },
   { href: "/preview", label: "Preview", icon: FileText },
+  { href: "/dashboard", label: "Recruiter", icon: Users },
   { href: "/tools", label: "Premium Tools", icon: Target },
   { href: "/pricing", label: "Pricing", icon: CreditCard },
   { href: "/auth", label: "Login", icon: LogIn }

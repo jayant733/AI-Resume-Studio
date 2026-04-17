@@ -120,6 +120,25 @@ export type InterviewQuestionsResponse = {
   project_questions: string[];
 };
 
+export type CandidateRankingItem = {
+  resume_id: number;
+  candidate_name?: string | null;
+  headline?: string | null;
+  match_score: number;
+  strengths: string[];
+  weaknesses: string[];
+  matched_skills: string[];
+  missing_skills: string[];
+  relevance_score: number;
+  experience_score: number;
+  skills_match_score: number;
+  experience_years_estimate: number;
+};
+
+export type CandidateRankingResponse = {
+  ranking: CandidateRankingItem[];
+};
+
 export type AppState = {
   authToken?: string;
   currentUser?: User;

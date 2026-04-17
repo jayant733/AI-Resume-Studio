@@ -219,3 +219,30 @@ class AppliedJobSummary(BaseModel):
     job_url: str
     status: str
     created_at: str
+
+
+class CandidateRankingRequest(BaseModel):
+    resume_ids: list[int]
+    job_title: str | None = None
+    company: str | None = None
+    job_description: str
+    sort_by: str = "relevance"
+
+
+class CandidateRankingItem(BaseModel):
+    resume_id: int
+    candidate_name: str | None = None
+    headline: str | None = None
+    match_score: float
+    strengths: list[str]
+    weaknesses: list[str]
+    matched_skills: list[str]
+    missing_skills: list[str]
+    relevance_score: float
+    experience_score: float
+    skills_match_score: float
+    experience_years_estimate: float
+
+
+class CandidateRankingResponse(BaseModel):
+    ranking: list[CandidateRankingItem]

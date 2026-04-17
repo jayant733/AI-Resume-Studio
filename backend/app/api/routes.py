@@ -19,6 +19,8 @@ from app.models.schemas import (
     AnalyzeJobResponse,
     ATSScoreResponse,
     AppliedJobSummary,
+    CandidateRankingRequest,
+    CandidateRankingResponse,
     CoverLetterRequest,
     CoverLetterResponse,
     GenerateJobResponse,
@@ -168,6 +170,33 @@ def analyze_job(payload: AnalyzeJobRequest, db: Session = Depends(get_db)):
 
     analysis = matcher.score_resume_against_job(ResumeStructuredData(**resume.parsed_data), parsed_job, resume.id)
     return AnalyzeJobResponse(job_id=job.id, **analysis)
+
+
+@router.post("/rank-candidates", response_model=CandidateRankingResponse)
+def rank_candidates(
+    payload: CandidateRankingRequest,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    parser = DocumentParserService()
+    matcher = MatchingService()
+
+    resumes = db.query(Resume).filter(Resume.id.in_(payload.resume_ids)).all()
+    if not resumes:
+        raise HTTPException(status_code=404, detail="No resumes found for ranking.")
+
+    unauthorized = [resume.id for resume in resumes if resume.user_id and (not current_user or resume.user_id != current_user.id)]
+    if unauthorized:
+        raise HTTPException(status_code=403, detail="You do not have access to one or more resumes.")
+
+    job_data = parser.parse_job_description(payload.job_description)
+    job_data["title"] = payload.job_title
+    job_data["company"] = payload.company
+    job_data["requirements_text"] = payload.job_description
+
+    candidate_data = [(resume.id, ResumeStructuredData(**resume.parsed_data)) for resume in resumes]
+    ranking = matcher.rank_candidates(candidate_data, job_data=job_data, sort_by=payload.sort_by)
+    return CandidateRankingResponse(ranking=ranking)
 
 
 @router.post("/generate-interview-questions", response_model=InterviewQuestionResponse)

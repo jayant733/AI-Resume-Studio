@@ -1,6 +1,7 @@
 import {
   AuthResponse,
   ATSScoreResponse,
+  CandidateRankingResponse,
   CoverLetterResponse,
   DiffResponse,
   GeneratedResume,
@@ -229,6 +230,22 @@ export async function generateInterviewQuestions(payload: {
   job_description: string;
 }, token?: string): Promise<InterviewQuestionsResponse> {
   const response = await fetch(`${API_BASE}/generate-interview-questions`, {
+    method: "POST",
+    headers: createAuthHeaders(token),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) throw new Error(await response.text());
+  return response.json();
+}
+
+export async function rankCandidates(payload: {
+  resume_ids: number[];
+  job_title?: string;
+  company?: string;
+  job_description: string;
+  sort_by?: string;
+}, token?: string): Promise<CandidateRankingResponse> {
+  const response = await fetch(`${API_BASE}/rank-candidates`, {
     method: "POST",
     headers: createAuthHeaders(token),
     body: JSON.stringify(payload),
