@@ -167,3 +167,12 @@ class InterviewQuestionResponse(BaseModel):
     technical_questions: list[str]
     behavioral_questions: list[str]
     project_questions: list[str]
+
+
+class TellMeAboutYourselfRequest(BaseModel):
+    resume_json: ResumeStructuredData
+    target_job_role: str
+
+
+class TellMeAboutYourselfResponse(BaseModel):
+    answer: str

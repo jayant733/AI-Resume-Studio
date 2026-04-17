@@ -273,6 +273,49 @@ Requirements:
         )
         return json.loads(response.output_text.strip())
 
+    def generate_tell_me_about_yourself(
+        self,
+        resume_data: ResumeStructuredData,
+        target_job_role: str,
+    ) -> dict[str, str]:
+        if not self.client:
+            return {"answer": self._fallback_tell_me_about_yourself(resume_data, target_job_role)}
+
+        prompt = f"""
+You are an expert interview coach.
+
+Create a strong "Tell me about yourself" interview answer using:
+- Resume JSON
+- Target job role
+
+Resume JSON:
+{resume_data.model_dump_json(indent=2)}
+
+Target job role:
+{target_job_role}
+
+Rules:
+- 120 to 180 words
+- Natural, conversational tone
+- Storytelling format, not robotic
+- Start with the candidate's current role, most recent role, or education
+- Highlight 2 to 3 key achievements from the actual resume
+- Align the story to the target job role
+- End with a future-facing goal related to the role
+- Keep all claims grounded in the provided resume
+
+Return ONLY valid JSON:
+{{
+  "answer": "..."
+}}
+"""
+        response = self.client.responses.create(
+            model=self.model,
+            input=[{"role": "user", "content": [{"type": "input_text", "text": prompt}]}],
+            text={"format": {"type": "json_object"}},
+        )
+        return json.loads(response.output_text.strip())
+
     def stream_chat(self, user_message: str, chat_history: list[dict], resume_data: ResumeStructuredData | None) -> Generator[str, None, None]:
         """Stream chat completions for the AI Career Assistant."""
         if not self.client:
@@ -387,3 +430,45 @@ Requirements:
             "behavioral_questions": behavioral_questions,
             "project_questions": project_questions,
         }
+
+    def _fallback_tell_me_about_yourself(
+        self,
+        resume_data: ResumeStructuredData,
+        target_job_role: str,
+    ) -> str:
+        current_anchor = (
+            resume_data.experience[0].title
+            if resume_data.experience
+            else resume_data.education[0].degree
+            if resume_data.education
+            else resume_data.headline
+            if resume_data.headline
+            else "my recent work"
+        )
+
+        achievements: list[str] = []
+        for entry in resume_data.experience[:2]:
+            for bullet in entry.bullets[:2]:
+                cleaned = bullet.strip()
+                if cleaned:
+                    achievements.append(cleaned)
+            if len(achievements) >= 3:
+                break
+
+        while len(achievements) < 3:
+            if resume_data.skills:
+                achievements.append(f"built practical strength in {resume_data.skills[min(len(achievements), len(resume_data.skills) - 1)]}")
+            else:
+                break
+
+        first_achievement = achievements[0] if len(achievements) > 0 else "worked on meaningful technical problems"
+        second_achievement = achievements[1] if len(achievements) > 1 else "improved the way teams deliver solutions"
+        third_achievement = achievements[2] if len(achievements) > 2 else "built a stronger foundation in solving real user needs"
+
+        return (
+            f"I’m currently focused on {current_anchor}, and over the last few years I’ve been building experience by taking on work that combines problem-solving with real delivery. "
+            f"One of the things I’m proud of is how I’ve {first_achievement.lower()}, and I’ve also had the chance to {second_achievement.lower()}. "
+            f"Along the way, that helped me become more thoughtful about both the technical side and the impact the work creates. "
+            f"I’d say that experience has naturally prepared me for a {target_job_role} role, because it has taught me how to learn quickly, contribute across the stack, and stay focused on outcomes. "
+            f"At this stage, I’m looking for an opportunity where I can bring that background into a stronger {target_job_role} position and keep growing by taking on deeper ownership and more challenging problems."
+        )

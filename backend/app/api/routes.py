@@ -27,6 +27,8 @@ from app.models.schemas import (
     ResumeStructuredData,
     ScrapeJobRequest,
     ScrapeJobResponse,
+    TellMeAboutYourselfRequest,
+    TellMeAboutYourselfResponse,
     UploadResumeResponse,
 )
 from app.services.auth_service import get_optional_current_user
@@ -189,6 +191,16 @@ def generate_interview_questions(
 
     result = llm.generate_interview_questions(resume_data=resume_data, job_data=job_data)
     return InterviewQuestionResponse(**result)
+
+
+@router.post("/generate-tell-me-about-yourself", response_model=TellMeAboutYourselfResponse)
+def generate_tell_me_about_yourself(payload: TellMeAboutYourselfRequest):
+    llm = LLMService()
+    result = llm.generate_tell_me_about_yourself(
+        resume_data=payload.resume_json,
+        target_job_role=payload.target_job_role,
+    )
+    return TellMeAboutYourselfResponse(**result)
 
 
 # ---------------------------------------------------------------------------
