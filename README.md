@@ -34,19 +34,25 @@ Production-style full-stack SaaS for multimodal resume parsing, job matching, RA
 
 ## Core Features
 
+- Signup/login authentication with bearer-token based user sessions
 - Resume parser for `PDF`, `DOCX`, and LinkedIn JSON payloads
 - Multimodal profile-image captioning through a vision-capable LLM path
 - Semantic job matching with embeddings and Chroma vector search
 - Custom multi-step optimization agent:
   `Parse -> Embed -> Retrieve -> Optimize -> Generate -> Format`
 - ATS-friendly PDF generation using Jinja2 + WeasyPrint
+- Interview question generator for technical, behavioral, and project deep-dive prep
 - Editable multi-page frontend workflow:
   upload, job analysis, AI suggestions, preview and download
 
 ## API Endpoints
 
+- `POST /auth/signup`
+- `POST /auth/login`
+- `GET /auth/me`
 - `POST /upload-resume`
 - `POST /analyze-job`
+- `POST /generate-interview-questions`
 - `POST /generate-resume`
 - `GET /download-pdf?output_id=<id>`
 - `GET /health`

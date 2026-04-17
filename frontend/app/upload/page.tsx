@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { Card } from "@/components/card";
 import { uploadResume } from "@/lib/api";
-import { mergeState } from "@/lib/storage";
+import { loadState, mergeState } from "@/lib/storage";
 
 export default function UploadPage() {
   const router = useRouter();
@@ -17,7 +17,8 @@ export default function UploadPage() {
     setLoading(true);
     try {
       const formData = new FormData(event.currentTarget);
-      const result = await uploadResume(formData);
+      const state = loadState();
+      const result = await uploadResume(formData, state.authToken);
       mergeState({ upload: result });
       router.push("/job");
     } catch (submissionError) {

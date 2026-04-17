@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/card";
-import { generateResume, getJobStatus, scrapeJob } from "@/lib/api";
+import { generateResume, getJobStatus } from "@/lib/api";
 import { loadState, mergeState } from "@/lib/storage";
 import { JobAnalysis, UploadResponse } from "@/lib/types";
 
@@ -73,7 +73,7 @@ export default function SuggestionsPage() {
         tone: "professional",
         additional_context: "Optimize for ATS screening and recruiter readability.",
         template_id: selectedTemplate,
-      });
+      }, state.authToken);
 
       // Animate pipeline steps while polling
       let step = 0;

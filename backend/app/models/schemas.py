@@ -45,6 +45,30 @@ class UploadResumeResponse(BaseModel):
     image_caption: str | None = None
 
 
+class UserResponse(BaseModel):
+    id: int
+    email: str
+    full_name: str | None = None
+    subscription_tier: str
+
+
+class AuthSignupRequest(BaseModel):
+    full_name: str
+    email: str
+    password: str = Field(min_length=8)
+
+
+class AuthLoginRequest(BaseModel):
+    email: str
+    password: str = Field(min_length=8)
+
+
+class AuthResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+
+
 class AnalyzeJobRequest(BaseModel):
     resume_id: int
     job_title: str | None = None
@@ -129,3 +153,17 @@ class CoverLetterRequest(BaseModel):
 class CoverLetterResponse(BaseModel):
     cover_letter_text: str
     pdf_download_url: str
+
+
+class InterviewQuestionRequest(BaseModel):
+    resume_id: int | None = None
+    resume_text: str | None = None
+    job_title: str | None = None
+    company: str | None = None
+    job_description: str
+
+
+class InterviewQuestionResponse(BaseModel):
+    technical_questions: list[str]
+    behavioral_questions: list[str]
+    project_questions: list[str]

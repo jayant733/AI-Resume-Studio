@@ -73,6 +73,10 @@ export function DiffView({
   original: Record<string, unknown>;
   optimized: Record<string, unknown>;
 }) {
+  const originalSummary = typeof original.summary === "string" ? original.summary : "";
+  const optimizedSummary = typeof optimized.summary === "string" ? optimized.summary : "";
+  const originalSkills = Array.isArray(original.skills) ? (original.skills as string[]) : [];
+  const optimizedSkills = Array.isArray(optimized.skills) ? (optimized.skills as string[]) : [];
   const origExp = (original.experience as ExpEntry[] | undefined) || [];
   const optExp = (optimized.experience as ExpEntry[] | undefined) || [];
   const maxSections = Math.max(origExp.length, optExp.length);
@@ -80,7 +84,7 @@ export function DiffView({
   return (
     <div className="space-y-8">
       {/* Summary diff */}
-      {(original.summary || optimized.summary) && (
+      {(originalSummary || optimizedSummary) && (
         <section>
           <h3 className="mb-3 border-b border-slate-200 pb-2 text-xs font-semibold uppercase tracking-[0.25em] text-slate">
             Summary
@@ -88,14 +92,14 @@ export function DiffView({
           <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-2xl border border-red-100 bg-red-50/40 p-4">
               <p className="mb-2 text-xs font-semibold text-red-500 uppercase tracking-wide">Original</p>
-              <p className="text-sm leading-7 text-ink/80">{String(original.summary || "—")}</p>
+              <p className="text-sm leading-7 text-ink/80">{originalSummary || "—"}</p>
             </div>
             <div className="rounded-2xl border border-green-100 bg-green-50/40 p-4">
               <p className="mb-2 text-xs font-semibold text-green-600 uppercase tracking-wide">Optimized</p>
               <p className="text-sm leading-7 text-ink">
                 <DiffLine
-                  original={String(original.summary || "")}
-                  optimized={String(optimized.summary || "")}
+                  original={originalSummary}
+                  optimized={optimizedSummary}
                 />
               </p>
             </div>
@@ -160,7 +164,7 @@ export function DiffView({
       )}
 
       {/* Skills diff */}
-      {(original.skills || optimized.skills) && (
+      {(originalSkills.length > 0 || optimizedSkills.length > 0) && (
         <section>
           <h3 className="mb-3 border-b border-slate-200 pb-2 text-xs font-semibold uppercase tracking-[0.25em] text-slate">
             Skills
@@ -169,7 +173,7 @@ export function DiffView({
             <div className="rounded-2xl border border-red-100 bg-red-50/40 p-4">
               <p className="mb-2 text-xs font-semibold text-red-500 uppercase">Original</p>
               <div className="flex flex-wrap gap-2">
-                {((original.skills as string[]) || []).map((s) => (
+                {originalSkills.map((s) => (
                   <span key={s} className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs text-red-700">{s}</span>
                 ))}
               </div>
@@ -177,7 +181,7 @@ export function DiffView({
             <div className="rounded-2xl border border-green-100 bg-green-50/40 p-4">
               <p className="mb-2 text-xs font-semibold text-green-600 uppercase">Optimized</p>
               <div className="flex flex-wrap gap-2">
-                {((optimized.skills as string[]) || []).map((s) => (
+                {optimizedSkills.map((s) => (
                   <span key={s} className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs text-green-700">{s}</span>
                 ))}
               </div>

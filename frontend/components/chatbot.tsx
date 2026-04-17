@@ -2,8 +2,11 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { MessageCircle, X, Send } from "lucide-react";
+import { loadState } from "@/lib/storage";
 
-export function Chatbot({ userId, resumeId }: { userId: number; resumeId?: number }) {
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+
+export function Chatbot() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
@@ -18,6 +21,11 @@ export function Chatbot({ userId, resumeId }: { userId: number; resumeId?: numbe
 
   const handleSend = async () => {
     if (!input.trim()) return;
+    const state = loadState();
+    if (!state.authToken || !state.currentUser) {
+      setMessages((prev) => [...prev, { role: "assistant", content: "Please log in first to use the career copilot." }]);
+      return;
+    }
     
     const newHistory = [...messages, { role: "user", content: input } as const];
     setMessages(newHistory);
@@ -25,12 +33,14 @@ export function Chatbot({ userId, resumeId }: { userId: number; resumeId?: numbe
     setIsTyping(true);
 
     try {
-      const res = await fetch("http://localhost:8000/products/chat", {
+      const res = await fetch(`${API_BASE}/products/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${state.authToken}`,
+        },
         body: JSON.stringify({
-          user_id: userId,
-          resume_id: resumeId,
+          resume_id: state.upload?.resume_id,
           user_message: input,
           chat_history: messages
         })

@@ -63,7 +63,7 @@ export default function JobPage() {
         job_title: jobTitle,
         company,
         job_description: description,
-      });
+      }, state.authToken);
       mergeState({ job: result, draftJobTitle: jobTitle, draftCompany: company, draftDescription: description });
       router.push("/suggestions");
     } catch (submissionError) {

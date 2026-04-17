@@ -9,27 +9,21 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.db.tables import Job, Resume, User
 from app.models.schemas import ResumeStructuredData
+from app.services.auth_service import get_current_user
 from app.services.llm_service import LLMService
-from app.utils.config import get_settings
 
 router = APIRouter()
 
 class ChatRequest(BaseModel):
-    user_id: int
     user_message: str
     chat_history: list[dict] = []
     resume_id: int | None = None
 
 class FeatureRequest(BaseModel):
-    user_id: int
     resume_id: int
     job_id: int | None = None
 
-def _check_tier(user_id: int, required_tier: str, db: Session):
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found.")
-    
+def _check_tier(user: User, required_tier: str):
     tiers = {"free": 0, "pro": 1, "premium": 2}
     if tiers.get(user.subscription_tier, 0) < tiers.get(required_tier, 0):
         raise HTTPException(
@@ -38,12 +32,12 @@ def _check_tier(user_id: int, required_tier: str, db: Session):
         )
 
 @router.post("/chat")
-def stream_chat(payload: ChatRequest, db: Session = Depends(get_db)):
-    _check_tier(payload.user_id, "premium", db)
+def stream_chat(payload: ChatRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    _check_tier(current_user, "premium")
     
     resume_data = None
     if payload.resume_id:
-        resume = db.query(Resume).filter(Resume.id == payload.resume_id).first()
+        resume = db.query(Resume).filter(Resume.id == payload.resume_id, Resume.user_id == current_user.id).first()
         if resume:
             resume_data = ResumeStructuredData(**resume.parsed_data)
 
@@ -60,10 +54,10 @@ def stream_chat(payload: ChatRequest, db: Session = Depends(get_db)):
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 @router.post("/mock-interview")
-def generate_mock_interview(payload: FeatureRequest, db: Session = Depends(get_db)):
-    _check_tier(payload.user_id, "premium", db)
+def generate_mock_interview(payload: FeatureRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    _check_tier(current_user, "premium")
     
-    resume = db.query(Resume).filter(Resume.id == payload.resume_id).first()
+    resume = db.query(Resume).filter(Resume.id == payload.resume_id, Resume.user_id == current_user.id).first()
     job = db.query(Job).filter(Job.id == payload.job_id).first() if payload.job_id else None
     
     if not resume:
@@ -74,10 +68,10 @@ def generate_mock_interview(payload: FeatureRequest, db: Session = Depends(get_d
     return llm.generate_mock_interview(ResumeStructuredData(**resume.parsed_data), job_data)
 
 @router.post("/linkedin-optimize")
-def optimize_linkedin(payload: FeatureRequest, db: Session = Depends(get_db)):
-    _check_tier(payload.user_id, "pro", db)
+def optimize_linkedin(payload: FeatureRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    _check_tier(current_user, "pro")
     
-    resume = db.query(Resume).filter(Resume.id == payload.resume_id).first()
+    resume = db.query(Resume).filter(Resume.id == payload.resume_id, Resume.user_id == current_user.id).first()
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found.")
 

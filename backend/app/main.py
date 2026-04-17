@@ -5,13 +5,18 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.auth_routes import router as auth_router
 from app.api.routes import router
-from app.api.stripe_routes import router as stripe_router
 from app.api.products_routes import router as products_router
 from app.db import tables  # noqa: F401
 from app.db.session import Base, engine
 from app.utils.config import get_settings
 from app.utils.logging import configure_logging
+
+try:
+    from app.api.stripe_routes import router as stripe_router
+except ModuleNotFoundError:  # pragma: no cover
+    stripe_router = None
 
 
 settings = get_settings()
@@ -32,7 +37,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.include_router(stripe_router, prefix="/stripe", tags=["Stripe"])
+app.include_router(auth_router, prefix="/auth", tags=["Auth"])
+if stripe_router is not None:
+    app.include_router(stripe_router, prefix="/stripe", tags=["Stripe"])
 app.include_router(products_router, prefix="/products", tags=["Products"])
 app.include_router(router)
 

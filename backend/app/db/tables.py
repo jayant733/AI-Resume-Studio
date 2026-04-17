@@ -15,6 +15,7 @@ class User(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     email: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True)
     full_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     stripe_customer_id: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True)
     subscription_tier: Mapped[str] = mapped_column(String(50), default="free")

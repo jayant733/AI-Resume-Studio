@@ -38,6 +38,19 @@ export type UploadResponse = {
   image_caption?: string | null;
 };
 
+export type User = {
+  id: number;
+  email: string;
+  full_name?: string | null;
+  subscription_tier: string;
+};
+
+export type AuthResponse = {
+  access_token: string;
+  token_type: "bearer";
+  user: User;
+};
+
 export type JobAnalysis = {
   job_id: number;
   semantic_score: number;
@@ -101,7 +114,15 @@ export type DiffResponse = {
   optimized: Record<string, unknown>;
 };
 
+export type InterviewQuestionsResponse = {
+  technical_questions: string[];
+  behavioral_questions: string[];
+  project_questions: string[];
+};
+
 export type AppState = {
+  authToken?: string;
+  currentUser?: User;
   upload?: UploadResponse;
   job?: JobAnalysis;
   generated?: GeneratedResume;

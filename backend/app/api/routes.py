@@ -21,12 +21,15 @@ from app.models.schemas import (
     GenerateJobResponse,
     GenerateResumeRequest,
     GenerateResumeResponse,
+    InterviewQuestionRequest,
+    InterviewQuestionResponse,
     JobStatusResponse,
     ResumeStructuredData,
     ScrapeJobRequest,
     ScrapeJobResponse,
     UploadResumeResponse,
 )
+from app.services.auth_service import get_optional_current_user
 from app.services.ats_scorer import ATSScorer
 from app.services.document_parser import DocumentParserService
 from app.services.embedding_service import EmbeddingService
@@ -55,6 +58,7 @@ async def upload_resume(
     linkedin_json: str | None = Form(default=None),
     profile_image: UploadFile | None = File(default=None),
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
     parser = DocumentParserService()
     embedder = EmbeddingService()
@@ -62,13 +66,17 @@ async def upload_resume(
     llm_service = LLMService()
     settings = get_settings()
 
-    user = None
-    if email:
+    user = current_user
+    if not user and email:
         user = db.query(User).filter(User.email == email).first()
         if not user:
             user = User(email=email, full_name=full_name)
             db.add(user)
             db.flush()
+    elif user and full_name and not user.full_name:
+        user.full_name = full_name
+        db.add(user)
+        db.flush()
 
     upload_dir = Path(settings.upload_dir)
     image_path = None
@@ -151,6 +159,36 @@ def analyze_job(payload: AnalyzeJobRequest, db: Session = Depends(get_db)):
 
     analysis = matcher.score_resume_against_job(ResumeStructuredData(**resume.parsed_data), parsed_job, resume.id)
     return AnalyzeJobResponse(job_id=job.id, **analysis)
+
+
+@router.post("/generate-interview-questions", response_model=InterviewQuestionResponse)
+def generate_interview_questions(
+    payload: InterviewQuestionRequest,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    parser = DocumentParserService()
+    llm = LLMService()
+
+    if payload.resume_id:
+        resume = db.query(Resume).filter(Resume.id == payload.resume_id).first()
+        if not resume:
+            raise HTTPException(status_code=404, detail="Resume not found.")
+        if resume.user_id and (not current_user or resume.user_id != current_user.id):
+            raise HTTPException(status_code=403, detail="You do not have access to this resume.")
+        resume_data = ResumeStructuredData(**resume.parsed_data)
+    elif payload.resume_text:
+        resume_data = parser.parse_text(payload.resume_text)
+    else:
+        raise HTTPException(status_code=400, detail="Provide either resume_id or resume_text.")
+
+    job_data = parser.parse_job_description(payload.job_description)
+    job_data["title"] = payload.job_title
+    job_data["company"] = payload.company
+    job_data["requirements_text"] = payload.job_description
+
+    result = llm.generate_interview_questions(resume_data=resume_data, job_data=job_data)
+    return InterviewQuestionResponse(**result)
 
 
 # ---------------------------------------------------------------------------

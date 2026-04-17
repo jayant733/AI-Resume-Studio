@@ -1,9 +1,11 @@
 import {
+  AuthResponse,
   ATSScoreResponse,
   CoverLetterResponse,
   DiffResponse,
   GeneratedResume,
   GenerateJobResponse,
+  InterviewQuestionsResponse,
   JobAnalysis,
   JobStatusResponse,
   ScrapeJobResponse,
@@ -12,12 +14,59 @@ import {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
+function createAuthHeaders(token?: string, json = true): HeadersInit {
+  const headers: Record<string, string> = {};
+  if (json) {
+    headers["Content-Type"] = "application/json";
+  }
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+export async function signup(payload: {
+  full_name: string;
+  email: string;
+  password: string;
+}): Promise<AuthResponse> {
+  const response = await fetch(`${API_BASE}/auth/signup`, {
+    method: "POST",
+    headers: createAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) throw new Error(await response.text());
+  return response.json();
+}
+
+export async function login(payload: {
+  email: string;
+  password: string;
+}): Promise<AuthResponse> {
+  const response = await fetch(`${API_BASE}/auth/login`, {
+    method: "POST",
+    headers: createAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) throw new Error(await response.text());
+  return response.json();
+}
+
+export async function getMe(token: string) {
+  const response = await fetch(`${API_BASE}/auth/me`, {
+    headers: createAuthHeaders(token, false),
+  });
+  if (!response.ok) throw new Error(await response.text());
+  return response.json();
+}
+
 // ---------------------------------------------------------------------------
 // Upload
 // ---------------------------------------------------------------------------
-export async function uploadResume(formData: FormData): Promise<UploadResponse> {
+export async function uploadResume(formData: FormData, token?: string): Promise<UploadResponse> {
   const response = await fetch(`${API_BASE}/upload-resume`, {
     method: "POST",
+    headers: createAuthHeaders(token, false),
     body: formData,
   });
   if (!response.ok) throw new Error(await response.text());
@@ -32,10 +81,10 @@ export async function analyzeJob(payload: {
   job_title?: string;
   company?: string;
   job_description: string;
-}): Promise<JobAnalysis> {
+}, token?: string): Promise<JobAnalysis> {
   const response = await fetch(`${API_BASE}/analyze-job`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: createAuthHeaders(token),
     body: JSON.stringify(payload),
   });
   if (!response.ok) throw new Error(await response.text());
@@ -48,7 +97,7 @@ export async function analyzeJob(payload: {
 export async function scrapeJob(url: string): Promise<ScrapeJobResponse> {
   const response = await fetch(`${API_BASE}/scrape-job`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: createAuthHeaders(),
     body: JSON.stringify({ url }),
   });
   if (!response.ok) throw new Error(await response.text());
@@ -64,10 +113,10 @@ export async function generateResume(payload: {
   tone: string;
   additional_context?: string;
   template_id?: string;
-}): Promise<GenerateJobResponse> {
+}, token?: string): Promise<GenerateJobResponse> {
   const response = await fetch(`${API_BASE}/generate-resume`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: createAuthHeaders(token),
     body: JSON.stringify(payload),
   });
   if (!response.ok) throw new Error(await response.text());
@@ -92,10 +141,10 @@ export async function* streamGenerateResume(payload: {
   tone: string;
   additional_context?: string;
   template_id?: string;
-}): AsyncGenerator<string> {
+}, token?: string): AsyncGenerator<string> {
   const response = await fetch(`${API_BASE}/stream-generate`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: createAuthHeaders(token),
     body: JSON.stringify(payload),
   });
   if (!response.ok || !response.body) throw new Error(await response.text());
@@ -152,10 +201,36 @@ export async function generateCoverLetter(payload: {
   resume_id: number;
   job_id: number;
   tone?: string;
-}): Promise<CoverLetterResponse> {
+}, token?: string): Promise<CoverLetterResponse> {
   const response = await fetch(`${API_BASE}/generate-cover-letter`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: createAuthHeaders(token),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) throw new Error(await response.text());
+  return response.json();
+}
+
+export async function generateLinkedinProfile(payload: { resume_id: number }, token: string) {
+  const response = await fetch(`${API_BASE}/products/linkedin-optimize`, {
+    method: "POST",
+    headers: createAuthHeaders(token),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) throw new Error(await response.text());
+  return response.json();
+}
+
+export async function generateInterviewQuestions(payload: {
+  resume_id?: number;
+  resume_text?: string;
+  job_title?: string;
+  company?: string;
+  job_description: string;
+}, token?: string): Promise<InterviewQuestionsResponse> {
+  const response = await fetch(`${API_BASE}/generate-interview-questions`, {
+    method: "POST",
+    headers: createAuthHeaders(token),
     body: JSON.stringify(payload),
   });
   if (!response.ok) throw new Error(await response.text());

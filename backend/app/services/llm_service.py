@@ -208,6 +208,46 @@ Keep it under 300 words. Do not add placeholders or [brackets].
         )
         return json.loads(response.output_text.strip())
 
+    def generate_interview_questions(
+        self,
+        resume_data: ResumeStructuredData,
+        job_data: dict[str, Any],
+    ) -> dict[str, list[str]]:
+        if not self.client:
+            return self._fallback_interview_questions(resume_data, job_data)
+
+        prompt = f"""
+You are a senior engineering interviewer preparing a candidate for a targeted technical interview.
+
+Candidate resume:
+{resume_data.model_dump_json(indent=2)}
+
+Target job:
+{json.dumps(job_data, indent=2)}
+
+Task:
+1. Use the candidate's actual skills, projects, and experience.
+2. Use the job's required skills.
+3. Make the difficulty progressive, from moderate to advanced.
+4. Return exactly:
+- 5 technical interview questions
+- 3 behavioral questions
+- 2 project-based deep dive questions
+
+Requirements:
+- Tailor the questions to the candidate's real background.
+- Avoid generic filler questions.
+- Project questions must reference a likely project, system, or implementation from the resume.
+- Return ONLY valid JSON with keys:
+  technical_questions, behavioral_questions, project_questions
+"""
+        response = self.client.responses.create(
+            model=self.model,
+            input=[{"role": "user", "content": [{"type": "input_text", "text": prompt}]}],
+            text={"format": {"type": "json_object"}},
+        )
+        return json.loads(response.output_text.strip())
+
     def generate_linkedin_profile(self, resume_data: ResumeStructuredData) -> dict[str, Any]:
         """Generate optimized LinkedIn headline and summary."""
         if not self.client:
@@ -311,4 +351,39 @@ Keep it under 300 words. Do not add placeholders or [brackets].
                 "Keep formatting ATS-friendly with clear headings and standard section names.",
                 "Prioritize the most relevant impact statements near the top of each section.",
             ],
+        }
+
+    def _fallback_interview_questions(
+        self,
+        resume_data: ResumeStructuredData,
+        job_data: dict[str, Any],
+    ) -> dict[str, list[str]]:
+        resume_skills = resume_data.skills[:8]
+        job_skills = job_data.get("skills", [])[:8]
+        focus_skills = list(dict.fromkeys(job_skills + resume_skills))[:5]
+        experience_entry = resume_data.experience[0] if resume_data.experience else None
+        project_entry = resume_data.projects[0] if resume_data.projects else None
+        experience_name = experience_entry.title if experience_entry else "your recent engineering work"
+        project_name = str(project_entry.get("name")) if project_entry else "your most relevant project"
+
+        technical_questions = [
+            f"How would you explain your hands-on experience with {focus_skills[0] if len(focus_skills) > 0 else 'the core technologies in this role'} from {experience_name}?",
+            f"What trade-offs did you manage when applying {focus_skills[1] if len(focus_skills) > 1 else 'scalable system design'} in a production setting?",
+            f"If this role required deeper ownership of {focus_skills[2] if len(focus_skills) > 2 else 'backend architecture'}, how would you improve your previous implementation?",
+            f"Describe how you would debug a performance bottleneck in a system built with {focus_skills[3] if len(focus_skills) > 3 else 'distributed services'}.",
+            f"Design a higher-scale version of the solution you built in {experience_name}, focusing on {focus_skills[4] if len(focus_skills) > 4 else 'reliability and maintainability'}.",
+        ]
+        behavioral_questions = [
+            f"Tell me about a time you had to learn a new skill quickly to deliver results in {experience_name}.",
+            "Describe a situation where you disagreed with a technical decision and how you handled it.",
+            "Tell me about a high-pressure delivery or deadline and how you kept quality under control.",
+        ]
+        project_questions = [
+            f"Walk me through the architecture, technical decisions, and biggest bottlenecks in {project_name}.",
+            f"If you had to rebuild {project_name} for this target role, what would you redesign first and why?",
+        ]
+        return {
+            "technical_questions": technical_questions,
+            "behavioral_questions": behavioral_questions,
+            "project_questions": project_questions,
         }

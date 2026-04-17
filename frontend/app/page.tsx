@@ -12,10 +12,10 @@ export default function HomePage() {
           Upload a resume, match it against a job description, rewrite the strongest achievements, and export a polished PDF.
         </p>
         <Link
-          href="/upload"
+          href="/auth"
           className="mt-8 inline-flex rounded-full bg-ink px-6 py-3 text-sm font-medium text-white transition hover:bg-ink/90"
         >
-          Start the workflow
+          Login to start
         </Link>
       </div>
     </div>

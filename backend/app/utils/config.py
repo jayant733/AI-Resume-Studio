@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     app_env: str = "development"
     backend_cors_origins: str = "http://localhost:3000"
     database_url: str = "postgresql+psycopg://postgres:postgres@postgres:5432/resume_ai"
+    auth_secret_key: str = "change-me-in-production"
+    auth_token_expiry_hours: int = 24
     openai_api_key: str | None = None
     openai_chat_model: str = "gpt-4.1-mini"
     openai_embedding_model: str = "text-embedding-3-small"

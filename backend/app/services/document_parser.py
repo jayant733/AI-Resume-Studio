@@ -20,6 +20,9 @@ class DocumentParserService:
         parsed = self._basic_resume_parse(raw_text)
         return raw_text, parsed
 
+    def parse_text(self, raw_text: str) -> ResumeStructuredData:
+        return self._basic_resume_parse(raw_text)
+
     def parse_linkedin_json(self, payload: dict) -> tuple[str, ResumeStructuredData]:
         raw_text = json.dumps(payload, indent=2)
         basics = payload.get("basics", {})
@@ -53,6 +56,7 @@ class DocumentParserService:
             skills=[skill.get("name") if isinstance(skill, dict) else skill for skill in payload.get("skills", []) if (isinstance(skill, dict) and skill.get("name")) or (isinstance(skill, str) and skill.strip())],
             experience=experience,
             education=education,
+            projects=payload.get("projects", []),
         )
         return raw_text, parsed
 
@@ -94,6 +98,7 @@ class DocumentParserService:
             experience=self._parse_experience(section_map.get("experience", "")),
             education=self._parse_education(section_map.get("education", "")),
             certifications=self._extract_bullets(section_map.get("certifications", "")),
+            projects=self._parse_projects(section_map.get("projects", "")),
         )
         logger.info("Parsed resume for %s", parsed.name or "unknown candidate")
         return parsed
@@ -185,3 +190,20 @@ class DocumentParserService:
             if contains is None or contains in url:
                 return url
         return None
+
+    def _parse_projects(self, text: str) -> list[dict]:
+        if not text:
+            return []
+        blocks = [block.strip() for block in re.split(r"\n\s*\n", text) if block.strip()]
+        projects = []
+        for block in blocks[:6]:
+            lines = [line.strip() for line in block.splitlines() if line.strip()]
+            if not lines:
+                continue
+            projects.append(
+                {
+                    "name": lines[0],
+                    "description": " ".join(lines[1:4]) if len(lines) > 1 else None,
+                }
+            )
+        return projects
