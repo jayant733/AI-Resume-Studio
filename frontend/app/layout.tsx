@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/app-shell";
+import { RouteGuard } from "@/components/route-guard";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -12,7 +13,9 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
   return (
     <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning>
-        <AppShell>{children}</AppShell>
+        <AppShell>
+          <RouteGuard>{children}</RouteGuard>
+        </AppShell>
       </body>
     </html>
   );
