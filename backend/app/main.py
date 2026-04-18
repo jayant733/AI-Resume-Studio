@@ -23,11 +23,6 @@ except ModuleNotFoundError:  # pragma: no cover
 
 
 settings = get_settings()
-vercel_origin = "https://ai-resume-studio-tau.vercel.app"
-cors_origins = [origin.strip() for origin in settings.backend_cors_origins.split(",") if origin.strip()]
-if vercel_origin not in cors_origins:
-    cors_origins.append(vercel_origin)
-local_origin_regex = r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
 logger = logging.getLogger(__name__)
 
 
@@ -39,10 +34,13 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
+origins = [
+    "https://ai-resume-studio-tau.vercel.app",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
-    allow_origin_regex=local_origin_regex,
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
