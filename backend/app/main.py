@@ -20,6 +20,8 @@ except ModuleNotFoundError:  # pragma: no cover
 
 
 settings = get_settings()
+cors_origins = [origin.strip() for origin in settings.backend_cors_origins.split(",") if origin.strip()]
+local_origin_regex = r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$" if settings.app_env != "production" else None
 
 
 @asynccontextmanager
@@ -32,7 +34,8 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[origin.strip() for origin in settings.backend_cors_origins.split(",")],
+    allow_origins=cors_origins,
+    allow_origin_regex=local_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

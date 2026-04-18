@@ -9,7 +9,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     app_name: str = "AI Resume Optimization Platform"
     app_env: str = "development"
-    backend_cors_origins: str = "http://localhost:3000"
+    backend_cors_origins: str = "http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001"
     database_url: str = "postgresql+psycopg://postgres:postgres@postgres:5432/resume_ai"
     auth_secret_key: str = "change-me-in-production"
     auth_token_expiry_hours: int = 24
