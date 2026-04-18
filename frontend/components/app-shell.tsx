@@ -1,30 +1,32 @@
 "use client";
 
 import Link from "next/link";
-import { FileText, Sparkles, Target, UploadCloud, CreditCard, LogIn, Users, LogOut } from "lucide-react";
+import { FileText, Sparkles, Target, UploadCloud, CreditCard, LogIn, Users, LogOut, Lock } from "lucide-react";
 import { ReactNode, useEffect, useState } from "react";
 import { Chatbot } from "./chatbot";
 import { clearState, loadState } from "@/lib/storage";
 import { User } from "@/lib/types";
+import { usePathname } from "next/navigation";
 
 const navItems = [
-  { href: "/upload", label: "Upload", icon: UploadCloud },
-  { href: "/job", label: "Job Match", icon: Target },
-  { href: "/suggestions", label: "Suggestions", icon: Sparkles },
-  { href: "/preview", label: "Preview", icon: FileText },
-  { href: "/dashboard", label: "Recruiter", icon: Users },
-  { href: "/tools", label: "Premium Tools", icon: Target },
+  { href: "/upload", label: "Upload", icon: UploadCloud, protected: true },
+  { href: "/job", label: "Job Match", icon: Target, protected: true },
+  { href: "/suggestions", label: "Suggestions", icon: Sparkles, protected: true },
+  { href: "/preview", label: "Preview", icon: FileText, protected: true },
+  { href: "/dashboard", label: "Recruiter", icon: Users, protected: true },
+  { href: "/tools", label: "Premium Tools", icon: Target, protected: true },
   { href: "/pricing", label: "Pricing", icon: CreditCard },
   { href: "/auth", label: "Login", icon: LogIn }
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const pathname = usePathname();
 
   useEffect(() => {
     const state = loadState();
     setCurrentUser(state.currentUser || null);
-  }, []);
+  }, [pathname]);
 
   function handleLogout() {
     clearState();
@@ -50,18 +52,31 @@ export function AppShell({ children }: { children: ReactNode }) {
         <nav className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
           {navItems.map((item) => {
             const Icon = item.icon;
+            const isLocked = Boolean(item.protected && !currentUser);
+            const href = isLocked ? "/auth" : item.href;
+            const label = item.href === "/auth" && currentUser ? "Account" : item.label;
             return (
               <Link
                 key={item.href}
-                href={item.href}
-                className="flex items-center gap-3 rounded-2xl border border-white/10 px-4 py-3 text-sm text-white/85 transition hover:border-white/30 hover:bg-white/5"
+                href={href}
+                className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm transition ${
+                  isLocked
+                    ? "border-white/5 bg-white/[0.03] text-white/55 hover:border-white/10 hover:bg-white/[0.06]"
+                    : "border-white/10 text-white/85 hover:border-white/30 hover:bg-white/5"
+                }`}
               >
                 <Icon className="h-4 w-4" />
-                <span>{item.label}</span>
+                <span>{label}</span>
+                {isLocked ? <Lock className="ml-auto h-4 w-4 text-white/45" /> : null}
               </Link>
             );
           })}
         </nav>
+        {!currentUser ? (
+          <div className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-100/10 px-4 py-3 text-sm text-white/75">
+            Login or sign up to unlock upload, job match, recruiter tools, and premium workflows.
+          </div>
+        ) : null}
         {currentUser ? (
           <button
             className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 px-4 py-3 text-sm text-white/85 transition hover:border-white/30 hover:bg-white/5"
