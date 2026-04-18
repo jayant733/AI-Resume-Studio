@@ -23,7 +23,10 @@ except ModuleNotFoundError:  # pragma: no cover
 
 
 settings = get_settings()
+vercel_origin = "https://ai-resume-studio-tau.vercel.app"
 cors_origins = [origin.strip() for origin in settings.backend_cors_origins.split(",") if origin.strip()]
+if vercel_origin not in cors_origins:
+    cors_origins.append(vercel_origin)
 local_origin_regex = r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
 logger = logging.getLogger(__name__)
 
