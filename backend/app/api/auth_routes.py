@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.db.session import get_db
 from app.db.tables import User
@@ -14,7 +15,13 @@ router = APIRouter()
 
 @router.post("/signup", response_model=AuthResponse)
 def signup(payload: AuthSignupRequest, db: Session = Depends(get_db)):
-    existing = db.query(User).filter(User.email == payload.email.lower()).first()
+    try:
+        existing = db.query(User).filter(User.email == payload.email.lower()).first()
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="Database error while checking existing users. Ensure database schema is current.",
+        ) from exc
     if existing:
         raise HTTPException(status_code=409, detail="An account with this email already exists.")
 
@@ -24,9 +31,16 @@ def signup(payload: AuthSignupRequest, db: Session = Depends(get_db)):
         full_name=payload.full_name,
         password_hash=auth_service.hash_password(payload.password),
     )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
+    try:
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Database error while creating account. Restart backend and verify migrations/schema.",
+        ) from exc
 
     token = auth_service.create_access_token(user)
     return AuthResponse(
@@ -42,7 +56,13 @@ def signup(payload: AuthSignupRequest, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=AuthResponse)
 def login(payload: AuthLoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == payload.email.lower()).first()
+    try:
+        user = db.query(User).filter(User.email == payload.email.lower()).first()
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="Database error while loading account. Restart backend and verify schema.",
+        ) from exc
     auth_service = AuthService()
     if not user or not auth_service.verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password.")

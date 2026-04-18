@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+import logging
+
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.auth_routes import router as auth_router
@@ -21,7 +24,8 @@ except ModuleNotFoundError:  # pragma: no cover
 
 settings = get_settings()
 cors_origins = [origin.strip() for origin in settings.backend_cors_origins.split(",") if origin.strip()]
-local_origin_regex = r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$" if settings.app_env != "production" else None
+local_origin_regex = r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -46,6 +50,19 @@ if stripe_router is not None:
 app.include_router(products_router, prefix="/products", tags=["Products"])
 app.include_router(router)
 
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(_: Request, exc: Exception):
+    logger.exception("Unhandled server error", exc_info=exc)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": (
+                "Internal server error. If this happened after recent schema changes, restart services "
+                "and ensure the database is up to date."
+            )
+        },
+    )
 
 
 @app.get("/health")
