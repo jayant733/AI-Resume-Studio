@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-
 import logging
 
 from fastapi import FastAPI, Request
@@ -18,7 +17,7 @@ from app.utils.logging import configure_logging
 
 try:
     from app.api.stripe_routes import router as stripe_router
-except ModuleNotFoundError:  # pragma: no cover
+except ModuleNotFoundError:
     stripe_router = None
 
 
@@ -26,6 +25,9 @@ settings = get_settings()
 logger = logging.getLogger(__name__)
 
 
+# -----------------------------
+# ✅ LIFESPAN (DB FIX ALREADY OK)
+# -----------------------------
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     configure_logging()
@@ -34,17 +36,27 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
-origins = [
-    "https://ai-resume-studio-tau.vercel.app",
-]
 
+
+# -----------------------------
+# ✅ CORS (FIXED PROPERLY)
+# -----------------------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=[
+        "https://ai-resume-studio-tau.vercel.app",
+        "http://localhost:3000",   # local dev
+        "*"  # TEMP: allow all (fixes preview domains)
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# -----------------------------
+# ROUTES
+# -----------------------------
 app.include_router(auth_router, prefix="/auth", tags=["Auth"])
 if stripe_router is not None:
     app.include_router(stripe_router, prefix="/stripe", tags=["Stripe"])
@@ -52,20 +64,21 @@ app.include_router(products_router, prefix="/products", tags=["Products"])
 app.include_router(router)
 
 
+# -----------------------------
+# ✅ BETTER ERROR LOGGING
+# -----------------------------
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(_: Request, exc: Exception):
-    logger.exception("Unhandled server error", exc_info=exc)
+    logger.exception("🔥 REAL ERROR:", exc_info=exc)
     return JSONResponse(
         status_code=500,
-        content={
-            "detail": (
-                "Internal server error. If this happened after recent schema changes, restart services "
-                "and ensure the database is up to date."
-            )
-        },
+        content={"detail": str(exc)},  # show real error (temporary)
     )
 
 
+# -----------------------------
+# HEALTH
+# -----------------------------
 @app.get("/health")
 def health_check():
     return {"status": "ok", "service": settings.app_name}
