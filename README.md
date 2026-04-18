@@ -130,6 +130,43 @@ npm run dev
 - Persist `backend/data` or move Chroma storage to a managed vector solution such as Pinecone.
 - Store API keys and database credentials in your deployment secret manager.
 
+### Render Deployment (Recommended)
+
+Deploy as 3 Render services:
+
+1. `resume-ai-db` (PostgreSQL)
+2. `resume-ai-backend` (Web Service, Docker, root dir `backend`)
+3. `resume-ai-frontend` (Web Service, Docker, root dir `frontend`)
+
+#### Backend env vars on Render
+
+- `APP_ENV=production`
+- `DATABASE_URL=<Render Postgres Internal Database URL>`
+- `AUTH_SECRET_KEY=<strong-random-secret>`
+- `OPENAI_API_KEY=<your-key>`
+- `OPENAI_CHAT_MODEL=gpt-4.1-mini`
+- `OPENAI_EMBEDDING_MODEL=text-embedding-3-small`
+- `LOCAL_EMBEDDING_MODEL=BAAI/bge-small-en-v1.5`
+- `BACKEND_CORS_ORIGINS=https://<your-frontend-service>.onrender.com`
+- `VECTOR_STORE_PATH=data/chroma`
+- `UPLOAD_DIR=data/uploads`
+- `GENERATED_DIR=data/generated`
+
+#### Frontend env vars on Render
+
+- `NEXT_PUBLIC_API_BASE_URL=https://<your-backend-service>.onrender.com`
+
+#### Render setup notes
+
+- Set frontend service root directory to `frontend`.
+- Set backend service root directory to `backend`.
+- Use Docker runtime for both services.
+- Deploy backend first, then frontend.
+- After deployment, verify:
+  - `/health` on backend
+  - signup/login flow
+  - resume upload -> job analysis -> generation -> ATS score
+
 ## Implementation Notes
 
 - If `OPENAI_API_KEY` is missing, the app still runs with deterministic local embedding and resume fallback logic so the pipeline remains usable during development.
