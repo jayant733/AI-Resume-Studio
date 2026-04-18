@@ -492,6 +492,7 @@ def stream_generate(payload: GenerateResumeRequest, db: Session = Depends(get_db
 # ATS score
 # ---------------------------------------------------------------------------
 
+@router.get("/ats-score", response_model=ATSScoreResponse)
 @router.post("/ats-score", response_model=ATSScoreResponse)
 def compute_ats_score(output_id: int = Query(...), db: Session = Depends(get_db)):
     output = db.query(GeneratedOutput).filter(GeneratedOutput.id == output_id).first()

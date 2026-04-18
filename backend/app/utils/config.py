@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     openai_chat_model: str = "gpt-4.1-mini"
     openai_embedding_model: str = "text-embedding-3-small"
+    local_embedding_model: str = "BAAI/bge-small-en-v1.5"
     vector_store_path: str = str(Path("data") / "chroma")
     upload_dir: str = str(Path("data") / "uploads")
     generated_dir: str = str(Path("data") / "generated")

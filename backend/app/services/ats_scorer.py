@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from app.services.embedding_service import EmbeddingService
+
 
 # Action verbs commonly found at the start of strong resume bullets
 _ACTION_VERBS = {
@@ -22,6 +24,9 @@ _EXPECTED_SECTIONS = ["summary", "skills", "experience", "education", "certifica
 
 class ATSScorer:
     """Compute a structured ATS compatibility score for an optimized resume."""
+
+    def __init__(self) -> None:
+        self.embedding_service = EmbeddingService()
 
     def score(self, resume_json: dict[str, Any], job_data: dict[str, Any]) -> dict[str, Any]:
         keyword_dim = self._score_keyword_density(resume_json, job_data)
@@ -57,11 +62,16 @@ class ATSScorer:
 
         resume_text = self._resume_to_text(resume_json).lower()
         matched = {kw for kw in job_keywords if kw in resume_text}
-        score = len(matched) / len(job_keywords)
+        exact_score = len(matched) / len(job_keywords)
+        semantic_score = self._semantic_alignment_score(resume_json, job_data)
+        score = min(1.0, (exact_score * 0.7) + (semantic_score * 0.3))
         return {
             "score": round(score, 3),
             "label": "Keyword Density",
-            "detail": f"{len(matched)} of {len(job_keywords)} job keywords present in resume.",
+            "detail": (
+                f"{len(matched)} of {len(job_keywords)} job keywords present in resume. "
+                f"Semantic alignment: {round(semantic_score * 100)}%."
+            ),
         }
 
     def _score_action_verbs(self, resume_json: dict) -> dict:
@@ -143,3 +153,21 @@ class ATSScorer:
         if not tips:
             tips.append("Your resume is well-optimized! Consider tailoring the summary for each specific role.")
         return tips
+
+    def _semantic_alignment_score(self, resume_json: dict, job_data: dict) -> float:
+        resume_text = self._resume_to_text(resume_json)
+        job_text_parts: list[str] = []
+        job_text_parts.extend(job_data.get("skills", []))
+        job_text_parts.extend(job_data.get("requirements", []))
+        job_text_parts.extend(job_data.get("responsibilities", []))
+        if isinstance(job_data.get("requirements_text"), str):
+            job_text_parts.append(job_data.get("requirements_text"))
+        job_text = " ".join(part for part in job_text_parts if part)
+        if not resume_text.strip() or not job_text.strip():
+            return 0.0
+
+        similarity = self.embedding_service.cosine_similarity(
+            self.embedding_service.embed_text(resume_text[:8000]),
+            self.embedding_service.embed_text(job_text[:8000]),
+        )
+        return max(0.0, min(1.0, float(similarity)))

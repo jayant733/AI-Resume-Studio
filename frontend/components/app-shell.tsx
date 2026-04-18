@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FileText, Sparkles, Target, UploadCloud, CreditCard, LogIn, Users, LogOut, Lock } from "lucide-react";
+import { FileText, Sparkles, Target, UploadCloud, CreditCard, LogIn, Users, LogOut, Lock, UserPlus } from "lucide-react";
 import { ReactNode, useEffect, useState } from "react";
 import { Chatbot } from "./chatbot";
 import { clearState, loadState } from "@/lib/storage";
@@ -19,9 +19,12 @@ const navItems = [
   { href: "/auth", label: "Login", icon: LogIn }
 ];
 
+const PUBLIC_ROUTES = new Set(["/", "/auth", "/pricing"]);
+
 export function AppShell({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const pathname = usePathname();
+  const isPublicRoute = PUBLIC_ROUTES.has(pathname);
 
   useEffect(() => {
     const state = loadState();
@@ -31,6 +34,36 @@ export function AppShell({ children }: { children: ReactNode }) {
   function handleLogout() {
     clearState();
     window.location.href = "/auth";
+  }
+
+  if (isPublicRoute && !currentUser) {
+    return (
+      <div className="mx-auto min-h-screen w-full max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+        <header className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white/85 px-4 py-3 shadow-soft">
+          <div>
+            <p className="text-xs uppercase tracking-[0.3em] text-slate">Resume AI</p>
+            <p className="text-sm font-semibold text-ink">Multimodal Resume Studio</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/auth"
+              className="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-ink transition hover:bg-slate-100"
+            >
+              <LogIn className="h-4 w-4" />
+              Login
+            </Link>
+            <Link
+              href="/auth"
+              className="inline-flex items-center gap-2 rounded-full bg-ink px-4 py-2 text-sm font-medium text-white transition hover:bg-ink/90"
+            >
+              <UserPlus className="h-4 w-4" />
+              Sign up
+            </Link>
+          </div>
+        </header>
+        <main className="min-w-0">{children}</main>
+      </div>
+    );
   }
 
   return (

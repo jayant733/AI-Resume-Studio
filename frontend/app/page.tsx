@@ -2,21 +2,31 @@ import Link from "next/link";
 
 export default function HomePage() {
   return (
-    <div className="flex min-h-[80vh] items-center justify-center">
-      <div className="max-w-3xl rounded-[32px] border border-white/70 bg-white/85 p-10 text-center shadow-soft backdrop-blur">
-        <p className="text-sm uppercase tracking-[0.35em] text-accent">Production Grade AI SaaS</p>
-        <h1 className="mt-4 text-5xl font-semibold leading-tight text-ink">
-          Build tailored, ATS-ready resumes with retrieval, agents, and multimodal AI.
+    <div className="relative overflow-hidden rounded-[32px] border border-white/70 bg-gradient-to-br from-white via-mist to-white p-8 shadow-soft sm:p-12">
+      <div className="pointer-events-none absolute -top-20 right-0 h-56 w-56 rounded-full bg-accent/15 blur-3xl" />
+      <div className="pointer-events-none absolute bottom-0 left-0 h-48 w-48 rounded-full bg-cyan-200/30 blur-3xl" />
+      <div className="relative mx-auto max-w-4xl text-center">
+        <p className="text-sm uppercase tracking-[0.35em] text-accent">AI Resume SaaS</p>
+        <h1 className="mt-4 text-4xl font-semibold leading-tight text-ink sm:text-5xl">
+          Land better interviews with a role-targeted resume pipeline.
         </h1>
         <p className="mt-6 text-base leading-8 text-slate">
-          Upload a resume, match it against a job description, rewrite the strongest achievements, and export a polished PDF.
+          Parse resumes, match against job descriptions, optimize bullets with AI, and generate ATS-ready outputs with recruiter-grade insights.
         </p>
-        <Link
-          href="/auth"
-          className="mt-8 inline-flex rounded-full bg-ink px-6 py-3 text-sm font-medium text-white transition hover:bg-ink/90"
-        >
-          Login to start
-        </Link>
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <Link
+            href="/auth"
+            className="inline-flex rounded-full bg-ink px-6 py-3 text-sm font-medium text-white transition hover:bg-ink/90"
+          >
+            Sign up
+          </Link>
+          <Link
+            href="/auth"
+            className="inline-flex rounded-full border border-slate-300 bg-white px-6 py-3 text-sm font-medium text-ink transition hover:bg-slate-50"
+          >
+            Login
+          </Link>
+        </div>
       </div>
     </div>
   );
