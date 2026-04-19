@@ -41,13 +41,11 @@ app = FastAPI(title=settings.app_name, lifespan=lifespan)
 # -----------------------------
 # ✅ CORS (FIXED PROPERLY)
 # -----------------------------
+origins = [origin.strip() for origin in settings.backend_cors_origins.split(",")]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://ai-resume-studio-tau.vercel.app",
-        "http://localhost:3000",   # local dev
-        "*"  # TEMP: allow all (fixes preview domains)
-    ],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
