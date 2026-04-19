@@ -177,7 +177,13 @@ def analyze_job(payload: AnalyzeJobRequest, db: Session = Depends(get_db)):
     db.refresh(job)
 
     fragments = parsed_job.get("requirements", []) + parsed_job.get("responsibilities", []) + parsed_job.get("skills", [])
-    vector_store.upsert_job_fragments(job.id, fragments, embedder.embed_texts(fragments))
+    embeddings = embedder.embed_texts(fragments)
+    # ✅ FIX: convert numpy floats → Python floats
+    clean_embeddings = [
+        [float(x) for x in vec]
+        for vec in embeddings
+    ]
+    vector_store.upsert_job_fragments(job.id, fragments, clean_embeddings)
 
     analysis = matcher.score_resume_against_job(ResumeStructuredData(**resume.parsed_data), parsed_job, resume.id)
     return AnalyzeJobResponse(job_id=job.id, **analysis)
