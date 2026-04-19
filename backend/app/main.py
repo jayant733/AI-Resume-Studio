@@ -83,11 +83,16 @@ app.include_router(router)
 # ✅ BETTER ERROR LOGGING
 # -----------------------------
 @app.exception_handler(Exception)
-async def unhandled_exception_handler(_: Request, exc: Exception):
-    logger.exception("🔥 REAL ERROR:", exc_info=exc)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    error_msg = f"🔥 CRITICAL ERROR in {request.method} {request.url.path}: {str(exc)}"
+    logger.exception(error_msg, exc_info=exc)
     return JSONResponse(
         status_code=500,
-        content={"detail": str(exc)},  # show real error (temporary)
+        content={
+            "detail": str(exc),
+            "error_type": type(exc).__name__,
+            "path": request.url.path
+        },
     )
 
 
