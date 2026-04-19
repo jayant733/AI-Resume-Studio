@@ -134,7 +134,13 @@ async def upload_resume(
     fragments = []
     for entry in parsed_resume.experience:
         fragments.extend(entry.bullets or [f"{entry.title} at {entry.company or 'Company'}"])
-    vector_store.upsert_resume_fragments(resume.id, fragments, embedder.embed_texts(fragments))
+    embeddings = embedder.embed_texts(fragments)
+    # ✅ FIX: convert numpy floats → Python floats
+    clean_embeddings = [
+        [float(x) for x in vec]
+        for vec in embeddings
+    ]
+    vector_store.upsert_resume_fragments(resume.id, fragments, clean_embeddings)
 
     logger.info("Uploaded resume %s", resume.id)
     return UploadResumeResponse(resume_id=resume.id, parsed_resume=parsed_resume, image_caption=image_caption)
