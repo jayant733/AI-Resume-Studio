@@ -39,26 +39,25 @@ app = FastAPI(title=settings.app_name, lifespan=lifespan)
 
 
 # -----------------------------
-# ✅ CORS (FIXED PROPERLY)
+# ✅ CORS (RE-IMPLEMENTED FROM SCRATCH)
 # -----------------------------
 origins = [origin.strip() for origin in settings.backend_cors_origins.split(",")]
 
-# Add logging middleware for CORS debugging
-@app.middleware("http")
-async def log_cors_headers(request: Request, call_next):
-    origin = request.headers.get("origin")
-    if origin:
-        logger.info(f"CORS Request Origin: {origin}")
-    response = await call_next(request)
-    return response
-
+# Add explicit CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_credentials=False, # Set to False temporarily for diagnosis
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
+
+# Explicit OPTIONS handler for preflight requests
+@app.options("/{rest_of_path:path}")
+async def preflight_handler(rest_of_path: str):
+    return {"status": "ok"}
+
 
 
 # -----------------------------
