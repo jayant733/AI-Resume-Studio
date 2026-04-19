@@ -43,6 +43,15 @@ app = FastAPI(title=settings.app_name, lifespan=lifespan)
 # -----------------------------
 origins = [origin.strip() for origin in settings.backend_cors_origins.split(",")]
 
+# Add logging middleware for CORS debugging
+@app.middleware("http")
+async def log_cors_headers(request: Request, call_next):
+    origin = request.headers.get("origin")
+    if origin:
+        logger.info(f"CORS Request Origin: {origin}")
+    response = await call_next(request)
+    return response
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
