@@ -58,15 +58,18 @@ export default function JobPage() {
     setLoading(true);
     setError(null);
     try {
+      console.log("Attempting analyzeJob request...");
       const result = await analyzeJob({
         resume_id: state.upload.resume_id,
         job_title: jobTitle,
         company,
         job_description: description,
       }, state.authToken);
+      console.log("Analysis successful:", result);
       mergeState({ job: result, draftJobTitle: jobTitle, draftCompany: company, draftDescription: description });
       router.push("/suggestions");
     } catch (submissionError) {
+      console.error("ANALYSIS ERROR DETAILED:", submissionError);
       setError(submissionError instanceof Error ? submissionError.message : "Job analysis failed.");
     } finally {
       setLoading(false);
