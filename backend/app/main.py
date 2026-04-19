@@ -32,6 +32,13 @@ logger = logging.getLogger(__name__)
 async def lifespan(_: FastAPI):
     configure_logging()
     Base.metadata.create_all(bind=engine)
+    # ✅ FIX: ensure upload + generated directories exist
+    from pathlib import Path
+    settings = get_settings()
+    upload_dir = Path(settings.upload_dir)
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    generated_dir = Path(settings.generated_dir)
+    generated_dir.mkdir(parents=True, exist_ok=True)
     yield
 
 
@@ -41,7 +48,6 @@ app = FastAPI(title=settings.app_name, lifespan=lifespan)
 # -----------------------------
 # ✅ CORS (ROBUST IMPLEMENTATION)
 # -----------------------------
-# Ensure we only have the exact allowed origins. 
 # We explicitly include the Vercel URL and local dev environments for flexibility.
 origins = [
     "https://ai-resume-studio-tau.vercel.app",
@@ -52,6 +58,7 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
+    allow_origin_regex="https://.*\\.vercel\\.app",
     allow_origins=origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
@@ -59,11 +66,6 @@ app.add_middleware(
     expose_headers=["*"],
     max_age=3600, # Cache preflight response for 1 hour
 )
-
-# Explicit OPTIONS handler to ensure preflight requests are always handled
-@app.options("/{rest_of_path:path}")
-async def preflight_handler(request: Request, rest_of_path: str):
-    return {"status": "ok"}
 
 
 

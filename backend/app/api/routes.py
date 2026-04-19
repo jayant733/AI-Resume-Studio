@@ -101,7 +101,12 @@ async def upload_resume(
         actual_source_type = "docx" if suffix == ".docx" else source_type
         fallback_name = f"resume{suffix or '.pdf'}"
         file_path = upload_dir / f"{datetime.utcnow().strftime('%Y%m%d%H%M%S')}-{resume_file.filename or fallback_name}"
-        file_path.write_bytes(await resume_file.read())
+        try:
+            content = await resume_file.read()
+            file_path.write_bytes(content)
+        except Exception as e:
+            logger.exception("❌ FILE WRITE FAILED")
+            raise HTTPException(status_code=500, detail=f"File write failed: {str(e)}")
         raw_text, parsed_resume = parser.parse_file(file_path, actual_source_type)
         original_filename = resume_file.filename
     else:
