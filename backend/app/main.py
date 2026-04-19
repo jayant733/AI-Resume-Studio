@@ -39,23 +39,30 @@ app = FastAPI(title=settings.app_name, lifespan=lifespan)
 
 
 # -----------------------------
-# ✅ CORS (RE-IMPLEMENTED FROM SCRATCH)
+# ✅ CORS (ROBUST IMPLEMENTATION)
 # -----------------------------
-origins = [origin.strip() for origin in settings.backend_cors_origins.split(",")]
+# Ensure we only have the exact allowed origins. 
+# We explicitly include the Vercel URL and local dev environments for flexibility.
+origins = [
+    "https://ai-resume-studio-tau.vercel.app",
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3000"
+]
 
-# Add explicit CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=False, # Set to False temporarily for diagnosis
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
     expose_headers=["*"],
+    max_age=3600, # Cache preflight response for 1 hour
 )
 
-# Explicit OPTIONS handler for preflight requests
+# Explicit OPTIONS handler to ensure preflight requests are always handled
 @app.options("/{rest_of_path:path}")
-async def preflight_handler(rest_of_path: str):
+async def preflight_handler(request: Request, rest_of_path: str):
     return {"status": "ok"}
 
 
