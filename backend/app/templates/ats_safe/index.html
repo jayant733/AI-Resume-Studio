@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ name }} - Resume</title>
+</head>
+<body>
+    <div class="page">
+        <header>
+            <h1>{{ name }}</h1>
+            <p>{{ contact.location }} | {{ contact.phone }} | {{ contact.email }}</p>
+            {% if contact.linkedin %}<p>{{ contact.linkedin }}</p>{% endif %}
+        </header>
+
+        {% if summary %}
+        <section>
+            <h2>Summary</h2>
+            <p>{{ summary }}</p>
+        </section>
+        {% endif %}
+
+        {% if experience %}
+        <section>
+            <h2>Experience</h2>
+            {% for item in experience %}
+            <div class="entry">
+                <div class="row">
+                    <strong>{{ item.company }}</strong>
+                    <span>{{ item.start_date }} - {{ item.end_date }}</span>
+                </div>
+                <div class="row">
+                    <em>{{ item.title }}</em>
+                </div>
+                <ul>
+                    {% for bullet in item.bullets %}
+                    <li>{{ bullet }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endfor %}
+        </section>
+        {% endif %}
+
+        {% if skills %}
+        <section>
+            <h2>Skills</h2>
+            <p>{{ skills | join(", ") }}</p>
+        </section>
+        {% endif %}
+
+        {% if education %}
+        <section>
+            <h2>Education</h2>
+            {% for item in education %}
+            <div class="entry">
+                <div class="row">
+                    <strong>{{ item.institution }}</strong>
+                    <span>{{ item.graduation_date }}</span>
+                </div>
+                <p>{{ item.degree }}</p>
+            </div>
+            {% endfor %}
+        </section>
+        {% endif %}
+    </div>
+</body>
+</html>

@@ -1,10 +1,12 @@
+backend/venv/
 .venv/
 __pycache__/
-.next/
+*.pyc
 node_modules/
+.next/
 dist/
 build/
-backend/data/
-backend/.env
-frontend/.env.local
-*.pyc
+.env
+.env.*
+*.db
+.coverage

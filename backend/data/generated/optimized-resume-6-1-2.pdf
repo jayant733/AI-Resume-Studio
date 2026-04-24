@@ -1,0 +1,76 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 2749 >>
+stream
+BT
+/F1 12 Tf
+72 760 Td (Resume) Tj
+72 744 Td () Tj
+72 728 Td (Jayant Sharma) Tj
+72 712 Td (Full Stack Developer | React | Node.js | Distributed Systems) Tj
+72 696 Td (Summary) Tj
+72 680 Td (Jayant Sharma is a professional professional with strengths in JavaScript, React, Node.js, MongoDB, Distributed Systems. The resume is aligned to the target role by highlighting transferable impact and ATS keywords. Additional context: Optimize for ATS screening and recruiter readability.) Tj
+72 664 Td (Skills) Tj
+72 648 Td (JavaScript, React, Node.js, MongoDB, Distributed Systems, OpenAI APIs, Tailwind CSS, Responsibilities:, Collaborate with cross-functional teams, Write clean, maintainable, and efficient code) Tj
+72 632 Td (Experience) Tj
+72 616 Td (- Role \(Mozilla VIT Club\)) Tj
+72 600 Td (  • Delivered built and maintained official club website used by 10,000+ students. Worked on frontend and backend features. with focus on Responsibilities:, Collaborate with cross-functional teams, Write clean.) Tj
+72 584 Td (- Role \(FlowAgent \(Personal Project\)\)) Tj
+72 568 Td (  • Delivered currently building an AI-powered workflow automation platform using React, Node.js, and OpenAI APIs. with focus on Responsibilities:, Collaborate with cross-functional teams, Write clean.) Tj
+72 552 Td (Raw data \(truncated\)) Tj
+72 536 Td ({) Tj
+72 520 Td (  "summary": "Jayant Sharma is a professional professional with strengths in JavaScript, React, Node.js, MongoDB, Distributed Systems. The resume is aligned to the target role by highlighting transferable impact and ATS keywords. Additional context: Optimize for ATS screening and recruiter readability.",) Tj
+72 504 Td (  "skills": [) Tj
+72 488 Td (    "JavaScript",) Tj
+72 472 Td (    "React",) Tj
+72 456 Td (    "Node.js",) Tj
+72 440 Td (    "MongoDB",) Tj
+72 424 Td (    "Distributed Systems",) Tj
+72 408 Td (    "OpenAI APIs",) Tj
+72 392 Td (    "Tailwind CSS",) Tj
+72 376 Td (    "Responsibilities:",) Tj
+72 360 Td (    "Collaborate with cross-functional teams",) Tj
+72 344 Td (    "Write clean",) Tj
+72 328 Td (    "maintainable",) Tj
+72 312 Td (    "and efficient code") Tj
+72 296 Td (  ],) Tj
+72 280 Td (  "experience": [) Tj
+72 264 Td (    {) Tj
+72 248 Td (      "title": "Role",) Tj
+72 232 Td (      "company": "Mozilla VIT Club",) Tj
+72 216 Td (      "start_date": null,) Tj
+72 200 Td (      "end_date": null,) Tj
+72 184 Td (      "bullets": [) Tj
+72 168 Td (        "Delivered built and maintained official club website used by 10,000+ students. Worked on frontend and backend features. with focus on Responsibilities:, Collaborate with cross-functional teams, Write clean.") Tj
+72 152 Td (      ]) Tj
+72 136 Td (    },) Tj
+72 120 Td (    {) Tj
+72 104 Td (      "title": "Role",) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000003042 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+3112
+%%EOF

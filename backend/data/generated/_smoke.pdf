@@ -1,0 +1,66 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 911 >>
+stream
+BT
+/F1 12 Tf
+72 760 Td (Resume) Tj
+72 744 Td () Tj
+72 728 Td (Test User) Tj
+72 712 Td (Backend Engineer) Tj
+72 696 Td (Summary) Tj
+72 680 Td (Hello) Tj
+72 664 Td (Skills) Tj
+72 648 Td (Python, FastAPI) Tj
+72 632 Td (Experience) Tj
+72 616 Td (- Dev \(ACME\)) Tj
+72 600 Td (  • Did X) Tj
+72 584 Td (  • Did Y) Tj
+72 568 Td (Raw data \(truncated\)) Tj
+72 552 Td ({) Tj
+72 536 Td (  "name": "Test User",) Tj
+72 520 Td (  "headline": "Backend Engineer",) Tj
+72 504 Td (  "summary": "Hello",) Tj
+72 488 Td (  "skills": [) Tj
+72 472 Td (    "Python",) Tj
+72 456 Td (    "FastAPI") Tj
+72 440 Td (  ],) Tj
+72 424 Td (  "experience": [) Tj
+72 408 Td (    {) Tj
+72 392 Td (      "title": "Dev",) Tj
+72 376 Td (      "company": "ACME",) Tj
+72 360 Td (      "bullets": [) Tj
+72 344 Td (        "Did X",) Tj
+72 328 Td (        "Did Y") Tj
+72 312 Td (      ]) Tj
+72 296 Td (    }) Tj
+72 280 Td (  ]) Tj
+72 264 Td (}) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000001203 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1273
+%%EOF
