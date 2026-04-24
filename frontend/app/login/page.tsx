@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useAuthStore } from '@/lib/store/authStore';
 import { useRouter } from 'next/navigation';
-import axios from 'axios';
 import { Mail, Lock, Loader2, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+import { login } from '@/lib/api';
+import { mergeState } from '@/lib/storage';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -13,7 +13,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
-  const { setUser } = useAuthStore();
   const router = useRouter();
 
   const handleSocialLogin = (provider: 'google' | 'github') => {
@@ -26,16 +25,11 @@ export default function LoginPage() {
     setError('');
     
     try {
-      const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/login`,
-        { email, password },
-        { withCredentials: true }
-      );
-      
-      setUser(response.data.user);
-      router.push('/dashboard');
+      const result = await login({ email, password });
+      mergeState({ authToken: result.access_token, currentUser: result.user });
+      router.push('/upload');
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Login failed. Please check your credentials.');
+      setError(err?.message || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
     }

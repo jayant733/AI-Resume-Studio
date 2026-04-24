@@ -1,258 +1,73 @@
-import {
-  AuthResponse,
-  ATSScoreResponse,
-  CandidateRankingResponse,
-  CoverLetterResponse,
-  DiffResponse,
-  GeneratedResume,
-  GenerateJobResponse,
-  InterviewQuestionsResponse,
-  JobAnalysis,
-  JobStatusResponse,
-  ScrapeJobResponse,
-  UploadResponse,
-} from "@/lib/types";
+import axios from 'axios';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
-function createAuthHeaders(token?: string, json = true): HeadersInit {
-  const headers: Record<string, string> = {};
-  if (json) {
-    headers["Content-Type"] = "application/json";
+// Standard production-grade axios instance
+const api = axios.create({
+  baseURL: API_BASE,
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Response interceptor for consistent error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const message = error.response?.data?.detail || error.message || 'An unexpected error occurred';
+    console.error(`[API Error] ${error.config.url}:`, message);
+    return Promise.reject(new Error(message));
   }
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-  return headers;
-}
+);
 
-export async function signup(payload: {
-  full_name: string;
-  email: string;
-  password: string;
-}): Promise<AuthResponse> {
-  const response = await fetch(`${API_BASE}/auth/signup`, {
-    method: "POST",
-    headers: createAuthHeaders(),
-    body: JSON.stringify(payload),
-  });
-  if (!response.ok) throw new Error(await response.text());
-  return response.json();
-}
-
-export async function login(payload: {
-  email: string;
-  password: string;
-}): Promise<AuthResponse> {
-  const response = await fetch(`${API_BASE}/auth/login`, {
-    method: "POST",
-    headers: createAuthHeaders(),
-    body: JSON.stringify(payload),
-  });
-  if (!response.ok) throw new Error(await response.text());
-  return response.json();
-}
-
-export async function getMe(token: string) {
-  const response = await fetch(`${API_BASE}/auth/me`, {
-    headers: createAuthHeaders(token, false),
-  });
-  if (!response.ok) throw new Error(await response.text());
-  return response.json();
-}
+export default api;
 
 // ---------------------------------------------------------------------------
-// Upload
+// Auth
 // ---------------------------------------------------------------------------
-export async function uploadResume(formData: FormData, token?: string): Promise<UploadResponse> {
-  const response = await fetch(`${API_BASE}/upload-resume`, {
-    method: "POST",
-    headers: createAuthHeaders(token, false),
-    body: formData,
-  });
-  if (!response.ok) throw new Error(await response.text());
-  return response.json();
-}
+export const signup = (payload: any) => api.post('/auth/signup', payload).then(res => res.data);
+export const login = (payload: any) => api.post('/auth/login', payload).then(res => res.data);
+export const logout = () => api.post('/auth/logout').then(res => res.data);
+export const getMe = () => api.get('/auth/me').then(res => res.data);
 
 // ---------------------------------------------------------------------------
-// Job analysis
+// Resumes & Optimization
 // ---------------------------------------------------------------------------
-export async function analyzeJob(payload: {
-  resume_id: number;
-  job_title?: string;
-  company?: string;
-  job_description: string;
-}, token?: string): Promise<JobAnalysis> {
-  const response = await fetch(`${API_BASE}/analyze-job`, {
-    method: "POST",
-    headers: createAuthHeaders(token),
-    body: JSON.stringify(payload),
-  });
-  if (!response.ok) throw new Error(await response.text());
-  return response.json();
-}
+export const uploadResume = (formData: FormData) => 
+  api.post('/upload-resume', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(res => res.data);
+
+export const analyzeJob = (payload: any) => api.post('/analyze-job', payload).then(res => res.data);
+
+export const generateResume = (payload: any) => api.post('/generate-resume', payload).then(res => res.data);
+
+export const getJobStatus = (jobId: number) => api.get(`/job-status/${jobId}`).then(res => res.data);
 
 // ---------------------------------------------------------------------------
-// Scrape job URL
+// Templates
 // ---------------------------------------------------------------------------
-export async function scrapeJob(url: string): Promise<ScrapeJobResponse> {
-  const response = await fetch(`${API_BASE}/scrape-job`, {
-    method: "POST",
-    headers: createAuthHeaders(),
-    body: JSON.stringify({ url }),
-  });
-  if (!response.ok) throw new Error(await response.text());
-  return response.json();
-}
+export const listTemplates = () => api.get('/templates').then(res => res.data);
+export const renderPreview = (payload: any) => api.post('/templates/render-preview', payload).then(res => res.data);
+export const exportPdf = (payload: any) => 
+  api.post('/templates/export', payload, { responseType: 'blob' }).then(res => res.data);
 
 // ---------------------------------------------------------------------------
-// Generate resume (async — returns job_id)
+// Analytics & History
 // ---------------------------------------------------------------------------
-export async function generateResume(payload: {
-  resume_id: number;
-  job_id: number;
-  tone: string;
-  additional_context?: string;
-  template_id?: string;
-}, token?: string): Promise<GenerateJobResponse> {
-  const response = await fetch(`${API_BASE}/generate-resume`, {
-    method: "POST",
-    headers: createAuthHeaders(token),
-    body: JSON.stringify(payload),
-  });
-  if (!response.ok) throw new Error(await response.text());
-  return response.json();
-}
+export const getOverview = () => api.get('/api/v1/analytics/overview').then(res => res.data);
+export const getHistory = () => api.get('/api/v1/analytics/history').then(res => res.data);
+export const getSkillsGap = () => api.get('/api/v1/analytics/skills-gap').then(res => res.data);
+
+export const getAnalysis = (id: string) => api.get(`/api/v1/analysis/${id}`).then(res => res.data);
+export const getEvaluation = (id: string) => api.get(`/api/v1/evaluation/${id}`).then(res => res.data);
+export const getDiff = (id: string) => api.get(`/api/v1/diff/${id}`).then(res => res.data);
 
 // ---------------------------------------------------------------------------
-// Poll job status
+// CRM / Applications
 // ---------------------------------------------------------------------------
-export async function getJobStatus(jobId: number): Promise<JobStatusResponse> {
-  const response = await fetch(`${API_BASE}/job-status/${jobId}`);
-  if (!response.ok) throw new Error(await response.text());
-  return response.json();
-}
-
-// ---------------------------------------------------------------------------
-// Stream generate (SSE)
-// ---------------------------------------------------------------------------
-export async function* streamGenerateResume(payload: {
-  resume_id: number;
-  job_id: number;
-  tone: string;
-  additional_context?: string;
-  template_id?: string;
-}, token?: string): AsyncGenerator<string> {
-  const response = await fetch(`${API_BASE}/stream-generate`, {
-    method: "POST",
-    headers: createAuthHeaders(token),
-    body: JSON.stringify(payload),
-  });
-  if (!response.ok || !response.body) throw new Error(await response.text());
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
-
-    for (const line of lines) {
-      if (!line.startsWith("data: ")) continue;
-      const raw = line.slice(6).trim();
-      if (raw === "[DONE]") return;
-      try {
-        const parsed = JSON.parse(raw);
-        if (parsed.chunk) yield parsed.chunk as string;
-        if (parsed.error) throw new Error(parsed.error as string);
-      } catch {
-        // skip malformed SSE lines
-      }
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------
-// ATS Score
-// ---------------------------------------------------------------------------
-export async function getATSScore(outputId: number): Promise<ATSScoreResponse> {
-  const response = await fetch(`${API_BASE}/ats-score?output_id=${outputId}`);
-  if (!response.ok) throw new Error(await response.text());
-  return response.json();
-}
-
-// ---------------------------------------------------------------------------
-// Diff view
-// ---------------------------------------------------------------------------
-export async function getDiff(outputId: number): Promise<DiffResponse> {
-  const response = await fetch(`${API_BASE}/diff/${outputId}`);
-  if (!response.ok) throw new Error(await response.text());
-  return response.json();
-}
-
-// ---------------------------------------------------------------------------
-// Cover letter
-// ---------------------------------------------------------------------------
-export async function generateCoverLetter(payload: {
-  resume_id: number;
-  job_id: number;
-  tone?: string;
-}, token?: string): Promise<CoverLetterResponse> {
-  const response = await fetch(`${API_BASE}/generate-cover-letter`, {
-    method: "POST",
-    headers: createAuthHeaders(token),
-    body: JSON.stringify(payload),
-  });
-  if (!response.ok) throw new Error(await response.text());
-  return response.json();
-}
-
-export async function generateLinkedinProfile(payload: { resume_id: number }, token: string) {
-  const response = await fetch(`${API_BASE}/products/linkedin-optimize`, {
-    method: "POST",
-    headers: createAuthHeaders(token),
-    body: JSON.stringify(payload),
-  });
-  if (!response.ok) throw new Error(await response.text());
-  return response.json();
-}
-
-export async function generateInterviewQuestions(payload: {
-  resume_id?: number;
-  resume_text?: string;
-  job_title?: string;
-  company?: string;
-  job_description: string;
-}, token?: string): Promise<InterviewQuestionsResponse> {
-  const response = await fetch(`${API_BASE}/generate-interview-questions`, {
-    method: "POST",
-    headers: createAuthHeaders(token),
-    body: JSON.stringify(payload),
-  });
-  if (!response.ok) throw new Error(await response.text());
-  return response.json();
-}
-
-export async function rankCandidates(payload: {
-  resume_ids: number[];
-  job_title?: string;
-  company?: string;
-  job_description: string;
-  sort_by?: string;
-}, token?: string): Promise<CandidateRankingResponse> {
-  const response = await fetch(`${API_BASE}/rank-candidates`, {
-    method: "POST",
-    headers: createAuthHeaders(token),
-    body: JSON.stringify(payload),
-  });
-  if (!response.ok) throw new Error(await response.text());
-  return response.json();
-}
+export const listApplications = () => api.get('/api/v1/applications/').then(res => res.data);
+export const updateApplication = (id: number, payload: any) => api.patch(`/api/v1/applications/${id}`, payload).then(res => res.data);
+export const deleteApplication = (id: number) => api.delete(`/api/v1/applications/${id}`).then(res => res.data);
 
 // ---------------------------------------------------------------------------
 // Helpers

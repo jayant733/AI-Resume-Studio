@@ -1,80 +1,131 @@
-'use client';
+"use client";
 
 import React from 'react';
 import { clsx } from 'clsx';
-import { HelpCircle, Info } from 'lucide-react';
+import { Info, CheckCircle2, ArrowRight, Zap, AlertCircle } from 'lucide-react';
 
-interface DiffItem {
-  original: string;
-  optimized: string;
-  reason: string;
-  added_keywords: string[];
+type WordDiff =
+  | { type: "same"; text: string }
+  | { type: "added"; text: string }
+  | { type: "removed"; text: string };
+
+function diffWords(original: string, updated: string): WordDiff[] {
+  const a = original.split(/\s+/).filter(Boolean);
+  const b = updated.split(/\s+/).filter(Boolean);
+
+  const m = a.length;
+  const n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (a[i - 1] === b[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1] + 1;
+      } else {
+        dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+      }
+    }
+  }
+
+  const result: WordDiff[] = [];
+  let i = m;
+  let j = n;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && a[i - 1] === b[j - 1]) {
+      result.unshift({ type: "same", text: a[i - 1] });
+      i--;
+      j--;
+    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+      result.unshift({ type: "added", text: b[j - 1] });
+      j--;
+    } else {
+      result.unshift({ type: "removed", text: a[i - 1] });
+      i--;
+    }
+  }
+  return result;
 }
 
-export default function DiffViewer({ data }: { data: { experience: DiffItem[] } }) {
-  if (!data || !data.experience) return null;
+function DiffLine({ original, optimized }: { original: string; optimized: string }) {
+  const diffs = diffWords(original, optimized);
+  return (
+    <span className="text-sm leading-7">
+      {diffs.map((d, i) =>
+        d.type === "added" ? (
+          <mark key={i} className="rounded bg-green-100 px-1 text-green-800 no-underline font-bold border-b-2 border-green-300">
+            {d.text}{' '}
+          </mark>
+        ) : d.type === "removed" ? (
+          <del key={i} className="rounded bg-red-50 px-1 text-red-400 line-through opacity-60">
+            {d.text}{' '}
+          </del>
+        ) : (
+          <span key={i} className="text-slate-600">{d.text}{' '}</span>
+        )
+      )}
+    </span>
+  );
+}
+
+export default function DiffViewer({ data }: { data: any }) {
+  if (!data) return null;
+
+  const { experience = [] } = data;
 
   return (
-    <div className="space-y-8">
-      <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg flex gap-3">
-        <Info className="text-blue-500 shrink-0" size={20} />
-        <p className="text-sm text-blue-700 leading-relaxed">
-          Hover over the <span className="font-bold text-yellow-600">highlighted bullets</span> to see the strategic reasoning behind each AI improvement. 
-          New keywords are marked in <span className="font-bold text-green-600">green</span>.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-8 font-semibold text-xs text-slate-400 uppercase tracking-widest px-2">
-        <div>Original Content</div>
-        <div>Optimized for ATS</div>
-      </div>
-
-      <div className="space-y-6">
-        {data.experience.map((item, idx) => (
-          <div key={idx} className="grid grid-cols-2 gap-8 items-start group">
-            {/* Original Bullet */}
-            <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl text-slate-500 line-through decoration-slate-300 opacity-70 italic text-sm">
-              {item.original}
-            </div>
-
-            {/* Optimized Bullet with Tooltip logic */}
-            <div className="relative p-4 bg-white border border-blue-100 rounded-xl shadow-sm hover:shadow-md transition-all cursor-help group/bullet">
-              <p className="text-sm text-slate-800 leading-relaxed">
-                {/* Simplified Keyword Highlighting for Demo */}
-                {item.optimized.split(' ').map((word, i) => {
-                  const cleanWord = word.replace(/[.,]/g, '');
-                  const isKeyword = item.added_keywords.some(k => k.toLowerCase() === cleanWord.toLowerCase());
-                  return (
-                    <span key={i} className={clsx(isKeyword && "text-green-600 font-bold")}>
-                      {word}{' '}
-                    </span>
-                  );
-                })}
-              </p>
-
-              {/* Custom Tooltip */}
-              <div className="absolute top-full left-0 mt-2 z-20 w-72 p-4 bg-slate-900 text-white text-xs rounded-xl shadow-2xl opacity-0 invisible group-hover/bullet:opacity-100 group-hover/bullet:visible transition-all">
-                 <div className="flex items-center gap-2 mb-2 text-blue-400 font-bold uppercase tracking-tighter">
-                   <HelpCircle size={14} />
-                   <span>AI Reasoning</span>
-                 </div>
-                 <p className="leading-normal mb-3 text-slate-300">{item.reason}</p>
-                 {item.added_keywords.length > 0 && (
-                   <div className="pt-2 border-t border-slate-700">
-                     <span className="block text-[10px] text-slate-500 mb-1 font-bold uppercase">Keywords Inserted:</span>
-                     <div className="flex flex-wrap gap-1">
-                       {item.added_keywords.map(kw => (
-                         <span key={kw} className="px-1.5 py-0.5 bg-blue-500/20 text-blue-300 rounded border border-blue-500/30 font-medium">{kw}</span>
-                       ))}
-                     </div>
-                   </div>
-                 )}
-                 <div className="absolute -top-1 left-6 w-3 h-3 bg-slate-900 rotate-45" />
+    <div className="space-y-10">
+      {experience.map((exp: any, idx: number) => (
+        <div key={idx} className="space-y-6">
+           <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-400 font-bold text-xs">
+                {idx + 1}
               </div>
+              <h4 className="font-black text-slate-800 uppercase tracking-widest text-xs">
+                {exp.title} <span className="text-slate-300 mx-2">/</span> {exp.company}
+              </h4>
+           </div>
+
+           <div className="grid gap-6">
+              {exp.bullets?.map((bullet: any, bIdx: number) => (
+                <div key={bIdx} className="bg-slate-50/50 rounded-3xl border border-slate-100 overflow-hidden group hover:border-blue-200 transition-all">
+                   <div className="grid grid-cols-1 lg:grid-cols-2">
+                      <div className="p-6 border-r border-slate-100 bg-white/40">
+                         <div className="flex items-center gap-2 mb-3">
+                            <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Original Input</span>
+                         </div>
+                         <p className="text-xs text-slate-400 leading-relaxed italic">{bullet.original}</p>
+                      </div>
+                      <div className="p-6 bg-white">
+                         <div className="flex items-center justify-between mb-3">
+                            <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-2">
+                               <Zap size={12} /> Strategic Optimization
+                            </span>
+                            {bullet.reason && (
+                               <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Info size={10} /> {bullet.reason}
+                               </div>
+                            )}
+                         </div>
+                         <DiffLine original={bullet.original} optimized={bullet.optimized} />
+                      </div>
+                   </div>
+                </div>
+              ))}
+           </div>
+        </div>
+      ))}
+
+      {experience.length === 0 && (
+         <div className="py-20 text-center space-y-4 bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-200">
+            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto shadow-sm">
+               <CheckCircle2 className="text-green-500" size={32} />
             </div>
-          </div>
-        ))}
-      </div>
+            <div>
+               <h4 className="text-lg font-bold text-slate-800">Content matches perfectly</h4>
+               <p className="text-sm text-slate-400 font-medium">Your original bullets are already highly optimized for this role.</p>
+            </div>
+         </div>
+      )}
     </div>
   );
 }

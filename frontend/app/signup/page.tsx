@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useAuthStore } from '@/lib/store/authStore';
 import { useRouter } from 'next/navigation';
-import axios from 'axios';
 import { Mail, Lock, User, Loader2, ArrowRight, Check } from 'lucide-react';
 import Link from 'next/link';
+import { login, signup } from '@/lib/api';
+import { mergeState } from '@/lib/storage';
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
@@ -14,7 +14,6 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
-  const { setUser } = useAuthStore();
   const router = useRouter();
 
   const handleSocialLogin = (provider: 'google' | 'github') => {
@@ -27,23 +26,12 @@ export default function SignupPage() {
     setError('');
     
     try {
-      // 1. Register
-      await axios.post(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/register`,
-        { email, password, full_name: fullName }
-      );
-      
-      // 2. Login immediately
-      const loginRes = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/login`,
-        { email, password },
-        { withCredentials: true }
-      );
-      
-      setUser(loginRes.data.user);
-      router.push('/builder');
+      await signup({ full_name: fullName, email, password });
+      const result = await login({ email, password });
+      mergeState({ authToken: result.access_token, currentUser: result.user });
+      router.push('/upload');
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Signup failed. Please try again.');
+      setError(err?.message || 'Signup failed. Please try again.');
     } finally {
       setLoading(false);
     }

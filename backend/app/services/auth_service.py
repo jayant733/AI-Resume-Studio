@@ -26,15 +26,16 @@ class AuthService:
         self.expiry_hours = settings.auth_token_expiry_hours
 
     def hash_password(self, password: str) -> str:
-        # Convert to bytes and truncate to 72 bytes (bcrypt limit)
-        password_bytes = password.encode("utf-8")[:72]
-        return pwd_context.hash(password_bytes)
+        # Bcrypt has a 72-byte limit. Truncate to avoid ValueError.
+        truncated = password.encode("utf-8")[:72].decode("utf-8", "ignore")
+        return pwd_context.hash(truncated)
 
     def verify_password(self, password: str, password_hash: str | None) -> bool:
         if not password_hash:
             return False
-        password_bytes = password.encode("utf-8")[:72]
-        return pwd_context.verify(password_bytes, password_hash)
+        # Bcrypt has a 72-byte limit. Truncate to avoid ValueError.
+        truncated = password.encode("utf-8")[:72].decode("utf-8", "ignore")
+        return pwd_context.verify(truncated, password_hash)
 
     def create_access_token(self, user: User) -> str:
         header = self._encode({"alg": "HS256", "typ": "JWT"})

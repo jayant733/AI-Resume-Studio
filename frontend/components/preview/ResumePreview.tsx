@@ -17,7 +17,8 @@ export default function ResumePreview() {
     try {
       const response = await axios.post(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/templates/render-preview`,
-        { resume_data: data, template_id: tid }
+        { resume_data: data, template_id: tid },
+        { withCredentials: true }
       );
       setHtml(response.data);
     } catch (error) {

@@ -1,263 +1,269 @@
-"use client";
+'use client';
 
-import { ChangeEvent, useMemo, useState } from "react";
-import { Card } from "@/components/card";
-import { rankCandidates, uploadResume } from "@/lib/api";
-import { loadState } from "@/lib/storage";
-import { CandidateRankingItem } from "@/lib/types";
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  AreaChart,
+  Area
+} from 'recharts';
+import { 
+  TrendingUp, 
+  Target, 
+  Zap, 
+  Award, 
+  AlertCircle, 
+  ChevronRight,
+  Loader2,
+  Trophy,
+  Activity,
+  ArrowUpRight
+} from 'lucide-react';
+import { clsx } from 'clsx';
 
-type UploadedCandidate = {
-  resumeId: number;
-  name: string;
-  filename: string;
-  headline?: string | null;
-};
+export default function DashboardPage() {
+  const [overview, setOverview] = useState<any>(null);
+  const [history, setHistory] = useState<any[]>([]);
+  const [skillsGap, setSkillsGap] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-const SORT_OPTIONS = [
-  { value: "relevance", label: "Relevance" },
-  { value: "experience", label: "Experience" },
-  { value: "skills_match", label: "Skills Match" },
-];
-
-export default function RecruiterDashboardPage() {
-  const [uploadedCandidates, setUploadedCandidates] = useState<UploadedCandidate[]>([]);
-  const [jobTitle, setJobTitle] = useState("");
-  const [company, setCompany] = useState("");
-  const [jobDescription, setJobDescription] = useState("");
-  const [sortBy, setSortBy] = useState("relevance");
-  const [minScore, setMinScore] = useState(0);
-  const [skillFilter, setSkillFilter] = useState("");
-  const [loadingUpload, setLoadingUpload] = useState(false);
-  const [loadingRank, setLoadingRank] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [ranking, setRanking] = useState<CandidateRankingItem[]>([]);
-
-  async function handleBulkUpload(event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files || []);
-    if (files.length === 0) return;
-
-    const state = loadState();
-    setLoadingUpload(true);
-    setError(null);
-
-    try {
-      const nextCandidates: UploadedCandidate[] = [];
-      for (const file of files) {
-        const formData = new FormData();
-        formData.append("resume_file", file);
-        formData.append("full_name", file.name.replace(/\.[^.]+$/, ""));
-        const result = await uploadResume(formData, state.authToken);
-        nextCandidates.push({
-          resumeId: result.resume_id,
-          name: result.parsed_resume.name || file.name.replace(/\.[^.]+$/, ""),
-          filename: file.name,
-          headline: result.parsed_resume.headline,
-        });
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [oRes, hRes, sRes] = await Promise.all([
+          axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/analytics/overview`, { withCredentials: true }),
+          axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/analytics/history`, { withCredentials: true }),
+          axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/analytics/skills-gap`, { withCredentials: true })
+        ]);
+        setOverview(oRes.data);
+        setHistory(hRes.data);
+        setSkillsGap(sRes.data);
+      } catch (err) {
+        console.error('Failed to load dashboard data:', err);
+      } finally {
+        setLoading(false);
       }
-      setUploadedCandidates((current) => [...current, ...nextCandidates]);
-    } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : "Failed to upload one or more resumes.");
-    } finally {
-      setLoadingUpload(false);
-      event.target.value = "";
-    }
-  }
+    };
+    fetchData();
+  }, []);
 
-  async function handleRankCandidates() {
-    if (!jobDescription.trim() || uploadedCandidates.length === 0) {
-      setError("Upload resumes and provide a job description before ranking.");
-      return;
-    }
-
-    const state = loadState();
-    setLoadingRank(true);
-    setError(null);
-    try {
-      const result = await rankCandidates(
-        {
-          resume_ids: uploadedCandidates.map((candidate) => candidate.resumeId),
-          job_title: jobTitle,
-          company,
-          job_description: jobDescription,
-          sort_by: sortBy,
-        },
-        state.authToken
-      );
-      setRanking(result.ranking);
-    } catch (rankingError) {
-      setError(rankingError instanceof Error ? rankingError.message : "Failed to rank candidates.");
-    } finally {
-      setLoadingRank(false);
-    }
-  }
-
-  const filteredRanking = useMemo(() => {
-    return ranking.filter((candidate) => {
-      const scorePass = candidate.match_score * 100 >= minScore;
-      const skillPass = !skillFilter.trim()
-        || candidate.matched_skills.some((skill) => skill.toLowerCase().includes(skillFilter.toLowerCase()));
-      return scorePass && skillPass;
-    });
-  }, [ranking, minScore, skillFilter]);
+  if (loading) return (
+    <div className="flex h-screen items-center justify-center bg-slate-50">
+      <div className="flex flex-col items-center gap-4">
+        <Loader2 className="animate-spin text-blue-600" size={48} />
+        <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Assembling Insights...</p>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="space-y-6">
-      <Card
-        title="Recruiter Dashboard"
-        description="Upload multiple resumes, rank candidates against a job description, and sort by fit, experience, or skill coverage."
-      >
-        <div className="grid gap-6 xl:grid-cols-[0.9fr,1.1fr]">
-          <div className="space-y-4">
-            <div className="rounded-3xl border border-dashed border-slate-300 bg-mist/60 p-6">
-              <label className="mb-2 block text-sm font-medium text-ink">Upload multiple resumes</label>
-              <input type="file" accept=".pdf,.docx" multiple onChange={handleBulkUpload} />
-              <p className="mt-2 text-xs text-slate">Each file is parsed and added to the candidate pool.</p>
+    <div className="min-h-screen bg-slate-50 p-8 space-y-10">
+      
+      {/* Header */}
+      <div className="flex items-end justify-between">
+         <div className="space-y-1">
+            <h1 className="text-4xl font-black text-slate-900 tracking-tight italic">Performance Hub</h1>
+            <p className="text-slate-500 font-medium">Track your career progression and resume effectiveness.</p>
+         </div>
+         <div className="bg-white px-4 py-2 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-green-500 animate-ping" />
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Live Updates Enabled</span>
+         </div>
+      </div>
+
+      {/* Top Level Stats */}
+      <div className="grid grid-cols-4 gap-6">
+         <StatCard 
+           label="Average ATS Score" 
+           value={`${Math.round(overview?.avg_ats_score || 0)}%`} 
+           sub="Across all versions"
+           icon={<Trophy className="text-yellow-500" />}
+           color="border-yellow-200"
+         />
+         <StatCard 
+           label="Optimizations" 
+           value={overview?.total_optimizations || 0} 
+           sub="AI-powered enhancements"
+           icon={<Zap className="text-blue-500" />}
+           color="border-blue-200"
+         />
+         <StatCard 
+           label="Interview Rate" 
+           value="12%" 
+           sub="+4% from last month"
+           icon={<Activity className="text-green-500" />}
+           color="border-green-200"
+         />
+         <StatCard 
+           label="Profile Strength" 
+           value="Expert" 
+           sub="Top 5% of applicants"
+           icon={<Award className="text-purple-500" />}
+           color="border-purple-200"
+         />
+      </div>
+
+      <div className="grid grid-cols-3 gap-8">
+         {/* Charts Section */}
+         <div className="col-span-2 space-y-8">
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-xl shadow-slate-200/50">
+               <div className="flex items-center justify-between mb-8">
+                  <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                    <TrendingUp className="text-blue-600" />
+                    Score Progression
+                  </h3>
+                  <select className="bg-slate-50 border-none text-xs font-bold text-slate-500 rounded-lg px-3 py-1 outline-none">
+                    <option>Last 30 Days</option>
+                    <option>Last 90 Days</option>
+                  </select>
+               </div>
+               <div className="h-[350px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={history}>
+                      <defs>
+                        <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#2563eb" stopOpacity={0.1}/>
+                          <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis 
+                        dataKey="date" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{fontSize: 10, fontWeight: 700, fill: '#94a3b8'}}
+                        dy={10}
+                      />
+                      <YAxis 
+                        hide 
+                        domain={[0, 100]}
+                      />
+                      <Tooltip 
+                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="score" 
+                        stroke="#2563eb" 
+                        strokeWidth={4}
+                        fillOpacity={1} 
+                        fill="url(#colorScore)" 
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+               </div>
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-white p-4">
-              <p className="text-sm font-semibold text-ink">Candidate pool</p>
-              <div className="mt-3 space-y-3">
-                {uploadedCandidates.length === 0 ? (
-                  <p className="text-sm text-slate">No resumes uploaded yet.</p>
-                ) : (
-                  uploadedCandidates.map((candidate) => (
-                    <div key={candidate.resumeId} className="rounded-2xl border border-slate-200 px-4 py-3">
-                      <p className="text-sm font-medium text-ink">{candidate.name}</p>
-                      <p className="text-xs text-slate">{candidate.filename}</p>
-                      {candidate.headline ? <p className="mt-1 text-xs text-slate">{candidate.headline}</p> : null}
+            <div className="grid grid-cols-2 gap-6">
+               <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-lg">
+                  <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <Target size={18} className="text-orange-500" />
+                    Focus Areas
+                  </h4>
+                  <ul className="space-y-4">
+                     <FocusItem label="Technical Depth" progress={85} />
+                     <FocusItem label="Leadership Narrative" progress={62} />
+                     <FocusItem label="Impact Quantification" progress={45} />
+                  </ul>
+               </div>
+               <div className="bg-blue-600 p-8 rounded-[2rem] text-white shadow-xl shadow-blue-200 relative overflow-hidden group">
+                  <div className="relative z-10 space-y-4">
+                    <h4 className="text-xl font-bold leading-tight">Your next level is just 5 edits away.</h4>
+                    <p className="text-blue-100 text-sm">Focus on adding specific metrics to your latest role to boost your score by 15%.</p>
+                    <button className="flex items-center gap-2 bg-white text-blue-600 px-6 py-2 rounded-xl font-bold text-sm hover:bg-blue-50 transition-colors">
+                      Optimize Now <ChevronRight size={16} />
+                    </button>
+                  </div>
+                  <Zap className="absolute -bottom-6 -right-6 w-32 h-32 text-blue-500 opacity-20 group-hover:scale-110 transition-transform duration-700" />
+               </div>
+            </div>
+         </div>
+
+         {/* Side Panel */}
+         <div className="space-y-8">
+            <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-xl shadow-slate-200/50">
+               <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+                 <AlertCircle className="text-red-500" />
+                 Critical Skill Gaps
+               </h3>
+               <p className="text-xs text-slate-400 font-medium mb-6 leading-relaxed">
+                 Based on your last 10 job applications, these skills were most frequently missing:
+               </p>
+               <div className="space-y-3">
+                  {skillsGap.map((item, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 hover:border-blue-200 transition-colors group cursor-default">
+                       <span className="text-sm font-bold text-slate-700">{item.skill}</span>
+                       <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-black text-slate-400 uppercase">Frequency</span>
+                          <span className="text-xs font-black text-blue-600">{item.count}x</span>
+                       </div>
                     </div>
-                  ))
-                )}
-              </div>
+                  ))}
+               </div>
             </div>
-          </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <input
-              className="rounded-2xl border border-slate-200 px-4 py-3"
-              placeholder="Job title"
-              value={jobTitle}
-              onChange={(event) => setJobTitle(event.target.value)}
-            />
-            <input
-              className="rounded-2xl border border-slate-200 px-4 py-3"
-              placeholder="Company"
-              value={company}
-              onChange={(event) => setCompany(event.target.value)}
-            />
-            <textarea
-              className="min-h-64 rounded-3xl border border-slate-200 px-4 py-3 md:col-span-2"
-              placeholder="Paste the full job description here..."
-              value={jobDescription}
-              onChange={(event) => setJobDescription(event.target.value)}
-            />
-            <select
-              className="rounded-2xl border border-slate-200 px-4 py-3"
-              value={sortBy}
-              onChange={(event) => setSortBy(event.target.value)}
-            >
-              {SORT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-            <div className="flex items-center justify-end">
-              <button
-                className="rounded-full bg-ink px-6 py-3 text-sm font-medium text-white disabled:opacity-60"
-                disabled={loadingUpload || loadingRank}
-                onClick={handleRankCandidates}
-                type="button"
-              >
-                {loadingUpload ? "Uploading..." : loadingRank ? "Ranking..." : "Rank candidates"}
-              </button>
+            <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-lg space-y-6">
+               <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                 <Award className="text-green-500" />
+                 Top Performing Resumes
+               </h3>
+               <div className="space-y-4">
+                  {[1, 2].map((_, i) => (
+                    <div key={i} className="flex items-center gap-4 p-4 rounded-2xl hover:bg-slate-50 transition-colors cursor-pointer group">
+                       <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400 group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
+                          <Target size={20} />
+                       </div>
+                       <div className="flex-1">
+                          <p className="text-sm font-bold text-slate-800">Senior Dev - Google</p>
+                          <p className="text-xs text-slate-400 font-medium">94% ATS Match</p>
+                       </div>
+                       <ArrowUpRight size={16} className="text-slate-300 group-hover:text-blue-600 transition-colors" />
+                    </div>
+                  ))}
+               </div>
             </div>
-          </div>
-        </div>
-        {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
-      </Card>
+         </div>
+      </div>
+    </div>
+  );
+}
 
-      <Card title="Ranking Table" description="Filter and sort candidate results by the dimensions recruiters care about most.">
-        <div className="mb-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <label className="text-sm text-slate">
-            Minimum match score
-            <input
-              className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3"
-              type="number"
-              min={0}
-              max={100}
-              value={minScore}
-              onChange={(event) => setMinScore(Number(event.target.value || 0))}
-            />
-          </label>
-          <label className="text-sm text-slate">
-            Required matched skill
-            <input
-              className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3"
-              placeholder="e.g. Python"
-              value={skillFilter}
-              onChange={(event) => setSkillFilter(event.target.value)}
-            />
-          </label>
-        </div>
+function StatCard({ label, value, sub, icon, color }: any) {
+  return (
+    <div className={clsx("bg-white p-6 rounded-3xl border-b-4 shadow-lg shadow-slate-100 space-y-4 transition-transform hover:-translate-y-1 cursor-default", color)}>
+       <div className="flex items-center justify-between">
+          <div className="p-2 bg-slate-50 rounded-xl">{icon}</div>
+          <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{label}</span>
+       </div>
+       <div>
+          <div className="text-3xl font-black text-slate-900">{value}</div>
+          <p className="text-[10px] font-bold text-slate-400 mt-1">{sub}</p>
+       </div>
+    </div>
+  );
+}
 
-        <div className="overflow-x-auto rounded-3xl border border-slate-200">
-          <table className="min-w-full divide-y divide-slate-200 bg-white text-sm">
-            <thead className="bg-mist/70">
-              <tr>
-                <th className="px-4 py-3 text-left font-semibold text-ink">Candidate</th>
-                <th className="px-4 py-3 text-left font-semibold text-ink">Match</th>
-                <th className="px-4 py-3 text-left font-semibold text-ink">Experience</th>
-                <th className="px-4 py-3 text-left font-semibold text-ink">Skills Match</th>
-                <th className="px-4 py-3 text-left font-semibold text-ink">Strengths</th>
-                <th className="px-4 py-3 text-left font-semibold text-ink">Weaknesses</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredRanking.length === 0 ? (
-                <tr>
-                  <td className="px-4 py-8 text-slate" colSpan={6}>No ranked candidates yet.</td>
-                </tr>
-              ) : (
-                filteredRanking.map((candidate) => (
-                  <tr key={candidate.resume_id} className="align-top">
-                    <td className="px-4 py-4">
-                      <p className="font-semibold text-ink">{candidate.candidate_name || `Candidate ${candidate.resume_id}`}</p>
-                      <p className="mt-1 text-xs text-slate">{candidate.headline || "No headline detected"}</p>
-                    </td>
-                    <td className="px-4 py-4">
-                      <p className="font-semibold text-ink">{Math.round(candidate.match_score * 100)}%</p>
-                      <p className="mt-1 text-xs text-slate">Relevance {Math.round(candidate.relevance_score * 100)}%</p>
-                    </td>
-                    <td className="px-4 py-4">
-                      <p className="font-semibold text-ink">{candidate.experience_years_estimate.toFixed(1)} yrs</p>
-                      <p className="mt-1 text-xs text-slate">Score {Math.round(candidate.experience_score * 100)}%</p>
-                    </td>
-                    <td className="px-4 py-4">
-                      <p className="font-semibold text-ink">{Math.round(candidate.skills_match_score * 100)}%</p>
-                      <p className="mt-1 text-xs text-slate">
-                        {candidate.matched_skills.slice(0, 4).join(", ") || "No matched skills"}
-                      </p>
-                    </td>
-                    <td className="px-4 py-4">
-                      <ul className="space-y-2 text-xs text-ink">
-                        {candidate.strengths.map((strength) => (
-                          <li key={strength}>{strength}</li>
-                        ))}
-                      </ul>
-                    </td>
-                    <td className="px-4 py-4">
-                      <ul className="space-y-2 text-xs text-slate">
-                        {candidate.weaknesses.map((weakness) => (
-                          <li key={weakness}>{weakness}</li>
-                        ))}
-                      </ul>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+function FocusItem({ label, progress }: any) {
+  return (
+    <div className="space-y-2">
+       <div className="flex justify-between items-center">
+          <span className="text-xs font-bold text-slate-600">{label}</span>
+          <span className="text-[10px] font-black text-slate-400">{progress}%</span>
+       </div>
+       <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+          <div 
+            className="bg-blue-600 h-full rounded-full transition-all duration-1000" 
+            style={{ width: `${progress}%` }} 
+          />
+       </div>
     </div>
   );
 }

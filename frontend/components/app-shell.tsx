@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { FileText, Sparkles, Target, UploadCloud, CreditCard, LogIn, Users, LogOut, Lock, UserPlus } from "lucide-react";
-import { ReactNode, useEffect, useState } from "react";
+import { FileText, Sparkles, Target, UploadCloud, CreditCard, LogIn, Users, LogOut, Lock, UserPlus, Briefcase } from "lucide-react";
+import { ReactNode } from "react";
 import { Chatbot } from "./chatbot";
-import { clearState, loadState } from "@/lib/storage";
-import { User } from "@/lib/types";
+import { useAuthStore } from "@/lib/store/authStore";
 import { usePathname } from "next/navigation";
 
 const navItems = [
@@ -24,21 +23,15 @@ const navItems = [
 const PUBLIC_ROUTES = new Set(["/", "/login", "/signup", "/pricing"]);
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const { user, isAuthenticated, logout } = useAuthStore();
   const pathname = usePathname();
   const isPublicRoute = PUBLIC_ROUTES.has(pathname);
 
-  useEffect(() => {
-    const state = loadState();
-    setCurrentUser(state.currentUser || null);
-  }, [pathname]);
-
   function handleLogout() {
-    clearState();
-    window.location.href = "/login";
+    logout();
   }
 
-  if (isPublicRoute && !currentUser) {
+  if (isPublicRoute && !isAuthenticated) {
     return (
       <div className="mx-auto min-h-screen w-full max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
         <header className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white/85 px-4 py-3 shadow-soft">
@@ -78,18 +71,22 @@ export function AppShell({ children }: { children: ReactNode }) {
             Parse resumes, match jobs, optimize content, and export an ATS-ready PDF.
           </p>
         </div>
-        {currentUser ? (
+        {user ? (
           <div className="mb-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-            <p className="text-sm font-medium text-white">{currentUser.full_name || currentUser.email}</p>
-            <p className="mt-1 text-xs uppercase tracking-[0.2em] text-white/60">{currentUser.subscription_tier}</p>
+            <p className="text-sm font-medium text-white">{user.full_name || user.email}</p>
+            <p className="mt-1 text-xs uppercase tracking-[0.2em] text-white/60">{user.subscription_tier}</p>
           </div>
         ) : null}
         <nav className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isLocked = Boolean(item.protected && !currentUser);
+            const isLocked = Boolean(item.protected && !isAuthenticated);
             const href = isLocked ? "/login" : item.href;
-            const label = item.href === "/login" && currentUser ? "Account" : item.label;
+            const label = item.href === "/login" && isAuthenticated ? "Account" : item.label;
+            
+            // Skip login/signup in nav if authenticated
+            if (isAuthenticated && (item.href === "/login" || item.href === "/signup")) return null;
+
             return (
               <Link
                 key={item.href}
@@ -107,12 +104,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
-        {!currentUser ? (
+        {!isAuthenticated ? (
           <div className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-100/10 px-4 py-3 text-sm text-white/75">
             Login or sign up to unlock upload, job match, recruiter tools, and premium workflows.
           </div>
         ) : null}
-        {currentUser ? (
+        {isAuthenticated ? (
           <button
             className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 px-4 py-3 text-sm text-white/85 transition hover:border-white/30 hover:bg-white/5"
             onClick={handleLogout}

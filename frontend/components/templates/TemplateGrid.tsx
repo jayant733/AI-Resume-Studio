@@ -15,8 +15,9 @@ export default function TemplateGrid() {
   useEffect(() => {
     const fetchTemplates = async () => {
       try {
-        // Assuming demo user ID 1
-        const response = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/templates?user_id=1`);
+        const response = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/templates`, {
+          withCredentials: true
+        });
         setTemplates(response.data);
       } catch (err) {
         console.error('Failed to load templates:', err);
