@@ -8,11 +8,15 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 from fastapi import Depends, Header, HTTPException
+from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.db.tables import User
 from app.utils.config import get_settings
+
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class AuthService:
@@ -22,18 +26,15 @@ class AuthService:
         self.expiry_hours = settings.auth_token_expiry_hours
 
     def hash_password(self, password: str) -> str:
-        salt = secrets.token_bytes(16)
-        digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 210000)
-        return f"{base64.urlsafe_b64encode(salt).decode()}${base64.urlsafe_b64encode(digest).decode()}"
+        # Convert to bytes and truncate to 72 bytes (bcrypt limit)
+        password_bytes = password.encode("utf-8")[:72]
+        return pwd_context.hash(password_bytes)
 
     def verify_password(self, password: str, password_hash: str | None) -> bool:
-        if not password_hash or "$" not in password_hash:
+        if not password_hash:
             return False
-        salt_b64, digest_b64 = password_hash.split("$", 1)
-        salt = base64.urlsafe_b64decode(salt_b64.encode("utf-8"))
-        expected = base64.urlsafe_b64decode(digest_b64.encode("utf-8"))
-        actual = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 210000)
-        return hmac.compare_digest(actual, expected)
+        password_bytes = password.encode("utf-8")[:72]
+        return pwd_context.verify(password_bytes, password_hash)
 
     def create_access_token(self, user: User) -> str:
         header = self._encode({"alg": "HS256", "typ": "JWT"})

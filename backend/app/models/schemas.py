@@ -55,12 +55,12 @@ class UserResponse(BaseModel):
 class AuthSignupRequest(BaseModel):
     full_name: str
     email: str
-    password: str = Field(min_length=8)
+    password: str = Field(min_length=8, max_length=72)
 
 
 class AuthLoginRequest(BaseModel):
     email: str
-    password: str = Field(min_length=8)
+    password: str = Field(min_length=8, max_length=72)
 
 
 class AuthResponse(BaseModel):
