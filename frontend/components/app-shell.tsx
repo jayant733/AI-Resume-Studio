@@ -10,16 +10,18 @@ import { usePathname } from "next/navigation";
 
 const navItems = [
   { href: "/upload", label: "Upload", icon: UploadCloud, protected: true },
+  { href: "/builder", label: "Resume Builder", icon: FileText, protected: true },
+  { href: "/applications", label: "Applications", icon: Briefcase, protected: true },
   { href: "/job", label: "Job Match", icon: Target, protected: true },
   { href: "/suggestions", label: "Suggestions", icon: Sparkles, protected: true },
   { href: "/preview", label: "Preview", icon: FileText, protected: true },
   { href: "/dashboard", label: "Recruiter", icon: Users, protected: true },
   { href: "/tools", label: "Premium Tools", icon: Target, protected: true },
   { href: "/pricing", label: "Pricing", icon: CreditCard },
-  { href: "/auth", label: "Login", icon: LogIn }
+  { href: "/login", label: "Login", icon: LogIn }
 ];
 
-const PUBLIC_ROUTES = new Set(["/", "/auth", "/pricing"]);
+const PUBLIC_ROUTES = new Set(["/", "/login", "/signup", "/pricing"]);
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -33,7 +35,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   function handleLogout() {
     clearState();
-    window.location.href = "/auth";
+    window.location.href = "/login";
   }
 
   if (isPublicRoute && !currentUser) {
@@ -46,14 +48,14 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
           <div className="flex items-center gap-2">
             <Link
-              href="/auth"
+              href="/login"
               className="inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-ink transition hover:bg-slate-100"
             >
               <LogIn className="h-4 w-4" />
               Login
             </Link>
             <Link
-              href="/auth"
+              href="/signup"
               className="inline-flex items-center gap-2 rounded-full bg-ink px-4 py-2 text-sm font-medium text-white transition hover:bg-ink/90"
             >
               <UserPlus className="h-4 w-4" />
@@ -86,8 +88,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           {navItems.map((item) => {
             const Icon = item.icon;
             const isLocked = Boolean(item.protected && !currentUser);
-            const href = isLocked ? "/auth" : item.href;
-            const label = item.href === "/auth" && currentUser ? "Account" : item.label;
+            const href = isLocked ? "/login" : item.href;
+            const label = item.href === "/login" && currentUser ? "Account" : item.label;
             return (
               <Link
                 key={item.href}

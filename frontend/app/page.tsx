@@ -15,13 +15,13 @@ export default function HomePage() {
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Link
-            href="/auth"
+            href="/signup"
             className="inline-flex rounded-full bg-ink px-6 py-3 text-sm font-medium text-white transition hover:bg-ink/90"
           >
             Sign up
           </Link>
           <Link
-            href="/auth"
+            href="/login"
             className="inline-flex rounded-full border border-slate-300 bg-white px-6 py-3 text-sm font-medium text-ink transition hover:bg-slate-50"
           >
             Login
