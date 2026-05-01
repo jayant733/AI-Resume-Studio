@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
 import TemplateCard from './TemplateCard';
 import { useResumeStore } from '@/lib/store/resumeStore';
 import { Search, Filter } from 'lucide-react';
+import { APP_STATE_KEY, loadState } from '@/lib/storage';
+import { listTemplates } from '@/lib/api';
 
 export default function TemplateGrid() {
   const [templates, setTemplates] = useState<any[]>([]);
@@ -15,10 +16,12 @@ export default function TemplateGrid() {
   useEffect(() => {
     const fetchTemplates = async () => {
       try {
-        const response = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/templates`, {
-          withCredentials: true
-        });
-        setTemplates(response.data);
+        const state = (loadState(APP_STATE_KEY) || {}) as any;
+        const token = (state.authToken as string) || '';
+        if (!token) throw new Error('Authentication required');
+
+        const data = await listTemplates(token);
+        setTemplates(data || []);
       } catch (err) {
         console.error('Failed to load templates:', err);
       } finally {

@@ -50,6 +50,7 @@ class UserResponse(BaseModel):
     email: str
     full_name: str | None = None
     subscription_tier: str
+    role: str = "user"
 
 
 class AuthSignupRequest(BaseModel):

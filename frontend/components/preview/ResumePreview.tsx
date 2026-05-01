@@ -1,28 +1,32 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
-import axios from 'axios';
+import React, { useEffect, useRef, useState } from 'react';
 import { useResumeStore } from '@/lib/store/resumeStore';
-import debounce from 'lodash.debounce';
+import debounce from '@/lib/debounce';
 import { Loader2 } from 'lucide-react';
+import { APP_STATE_KEY, loadState } from '@/lib/storage';
+import { renderTemplatePreview } from '@/lib/api';
 
 export default function ResumePreview() {
   const { resumeData, templateId } = useResumeStore();
   const [html, setHtml] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string>('');
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const fetchPreview = async (data: any, tid: string) => {
     setIsLoading(true);
+    setError('');
     try {
-      const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/templates/render-preview`,
-        { resume_data: data, template_id: tid },
-        { withCredentials: true }
-      );
-      setHtml(response.data);
-    } catch (error) {
+      const state = (loadState(APP_STATE_KEY) || {}) as any;
+      const token = (state.authToken as string) || '';
+      if (!token) throw new Error('Authentication required');
+
+      const res = await renderTemplatePreview({ resume_data: data, template_id: tid }, token);
+      setHtml(res.html);
+    } catch (error: any) {
       console.error('Failed to fetch preview:', error);
+      setError(error?.message || 'Failed to render preview.');
     } finally {
       setIsLoading(false);
     }
@@ -30,7 +34,7 @@ export default function ResumePreview() {
 
   // Debounce the preview update to avoid too many API calls
   const debouncedFetch = useRef(
-    debounce((data, tid) => fetchPreview(data, tid), 500)
+    debounce((data: any, tid: string) => fetchPreview(data, tid), 500)
   ).current;
 
   useEffect(() => {
@@ -53,6 +57,15 @@ export default function ResumePreview() {
       {isLoading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/50 backdrop-blur-sm">
           <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        </div>
+      )}
+
+      {error && !isLoading && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 backdrop-blur-sm p-6">
+          <div className="max-w-md w-full bg-white border border-slate-200 rounded-2xl shadow-sm p-4">
+            <p className="text-sm font-bold text-slate-800">Preview unavailable</p>
+            <p className="text-xs text-slate-500 mt-1">{error}</p>
+          </div>
         </div>
       )}
       

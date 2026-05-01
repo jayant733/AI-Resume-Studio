@@ -5,7 +5,7 @@ import logging
 import math
 from typing import Iterable
 
-from openai import OpenAI
+import google.generativeai as genai
 
 from app.utils.config import get_settings
 
@@ -16,26 +16,59 @@ logger = logging.getLogger(__name__)
 class EmbeddingService:
     def __init__(self) -> None:
         settings = get_settings()
-        self.model = settings.openai_embedding_model
+        self.model_name = settings.gemini_embedding_model
+        self.api_key = settings.gemini_api_key
         self.local_model_name = settings.local_embedding_model
-        self.client = OpenAI(api_key=settings.openai_api_key) if settings.openai_api_key else None
+        
+        if self.api_key:
+            genai.configure(api_key=self.api_key)
+            self.use_gemini = True
+        else:
+            self.use_gemini = False
+            
         self._local_embedder = self._init_local_embedder()
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []
-        if self.client:
-            response = self.client.embeddings.create(model=self.model, input=texts)
-            return [item.embedding for item in response.data]
+        
+        if self.use_gemini:
+            try:
+                # Truncate texts to 2000 chars to avoid API errors for very long strings
+                truncated_texts = [t[:2000] for t in texts]
+                result = genai.embed_content(
+                    model=self.model_name,
+                    content=truncated_texts,
+                    task_type="retrieval_document"
+                )
+                # Gemini returns a list of embeddings for the batch
+                return result["embedding"]
+            except Exception as e:
+                logger.error(f"Gemini embedding failed: {e}")
+                # Fall through to local or hash fallback
+        
         if self._local_embedder:
             try:
                 vectors = list(self._local_embedder.embed(texts))
                 return [list(vector) for vector in vectors]
             except Exception as exc:  # noqa: BLE001
                 logger.warning("Local embedding model failed, falling back to hash embeddings: %s", exc)
+        
         return [self._local_embed(text) for text in texts]
 
     def embed_text(self, text: str) -> list[float]:
+        if self.use_gemini:
+            try:
+                # Single text embedding
+                result = genai.embed_content(
+                    model=self.model_name,
+                    content=text[:2000],
+                    task_type="retrieval_query"
+                )
+                return result["embedding"]
+            except Exception as e:
+                logger.error(f"Gemini embedding (single) failed: {e}")
+                
         return self.embed_texts([text])[0]
 
     def cosine_similarity(self, left: Iterable[float], right: Iterable[float]) -> float:
@@ -48,7 +81,8 @@ class EmbeddingService:
             return 0.0
         return numerator / (left_norm * right_norm)
 
-    def _local_embed(self, text: str, dimensions: int = 128) -> list[float]:
+    def _local_embed(self, text: str, dimensions: int = 3072) -> list[float]:
+        # Adjusted default local dimensions to 3072 to match Gemini if fallback is needed
         vector = [0.0] * dimensions
         for token in text.lower().split():
             digest = hashlib.sha256(token.encode("utf-8")).digest()

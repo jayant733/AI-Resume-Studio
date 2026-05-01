@@ -8,7 +8,8 @@ import time
 from pathlib import Path
 from typing import Any, Generator
 
-from openai import OpenAI
+import google.generativeai as genai
+from google.generativeai.types import GenerationConfig
 
 from app.models.schemas import ResumeStructuredData
 from app.utils.config import get_settings
@@ -20,28 +21,31 @@ logger = logging.getLogger(__name__)
 class LLMService:
     def __init__(self) -> None:
         settings = get_settings()
-        self.model = settings.openai_chat_model
-        self.client = OpenAI(api_key=settings.openai_api_key) if settings.openai_api_key else None
+        self.model_name = settings.gemini_model
+        self.api_key = settings.gemini_api_key
+        
+        if self.api_key:
+            genai.configure(api_key=self.api_key)
+            self.model = genai.GenerativeModel(self.model_name)
+        else:
+            self.model = None
 
     def describe_image(self, image_path: Path) -> str | None:
         if not image_path or not image_path.exists():
             return None
-        if not self.client:
+        if not self.model:
             return "Professional profile image supplied by the candidate."
-        encoded = base64.b64encode(image_path.read_bytes()).decode("utf-8")
-        response = self.client.responses.create(
-            model=self.model,
-            input=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "input_text", "text": "Describe this candidate profile image for a professional resume in one sentence."},
-                        {"type": "input_image", "image_url": f"data:image/png;base64,{encoded}"},
-                    ],
-                }
-            ],
-        )
-        return response.output_text.strip()
+        
+        try:
+            image_data = image_path.read_bytes()
+            response = self.model.generate_content([
+                "Describe this candidate profile image for a professional resume in one sentence.",
+                {"mime_type": "image/png", "data": image_data}
+            ])
+            return response.text.strip()
+        except Exception as e:
+            logger.error(f"Error describing image: {e}")
+            return "Professional profile image."
 
     def optimize_resume(
         self,
@@ -51,7 +55,7 @@ class LLMService:
         tone: str,
         additional_context: str | None,
     ) -> dict[str, Any]:
-        if not self.client:
+        if not self.model:
             return self._fallback_resume(resume_data, job_data, relevant_fragments, tone, additional_context)
 
         prompt = f"""
@@ -74,13 +78,23 @@ Rules:
 - Rewrite bullets with action verbs and quantified outcomes where possible.
 - Prioritize ATS keywords naturally.
 - Preserve concise single-column resume structure.
+- RETURN ONLY VALID JSON.
 """
-        response = self.client.responses.create(
-            model=self.model,
-            input=[{"role": "user", "content": [{"type": "input_text", "text": prompt}]}],
-            text={"format": {"type": "json_object"}},
-        )
-        return json.loads(response.output_text.strip())
+        try:
+            response = self.model.generate_content(
+                prompt,
+                generation_config=GenerationConfig(response_mime_type="application/json")
+            )
+            # Remove markdown code blocks if present
+            text = response.text.strip()
+            if text.startswith("```json"):
+                text = text[7:-3].strip()
+            elif text.startswith("```"):
+                text = text[3:-3].strip()
+            return json.loads(text)
+        except Exception as e:
+            logger.error(f"Error optimizing resume: {e}")
+            return self._fallback_resume(resume_data, job_data, relevant_fragments, tone, additional_context)
 
     def stream_optimize_resume(
         self,
@@ -91,8 +105,7 @@ Rules:
         additional_context: str | None,
     ) -> Generator[str, None, None]:
         """Stream the optimized resume JSON as text chunks."""
-        if not self.client:
-            # Fallback: yield the full fallback response in small chunks
+        if not self.model:
             fallback = self._fallback_resume(resume_data, job_data, relevant_fragments, tone, additional_context)
             text = json.dumps(fallback, indent=2)
             chunk_size = 12
@@ -121,16 +134,20 @@ Rules:
 - Rewrite bullets with action verbs and quantified outcomes where possible.
 - Prioritize ATS keywords naturally.
 - Preserve concise single-column resume structure.
+- RETURN ONLY VALID JSON.
 """
-        with self.client.responses.stream(
-            model=self.model,
-            input=[{"role": "user", "content": [{"type": "input_text", "text": prompt}]}],
-        ) as stream:
-            for event in stream:
-                # The streaming API emits text delta events
-                delta = getattr(event, "delta", None)
-                if delta and isinstance(delta, str):
-                    yield delta
+        try:
+            response = self.model.generate_content(
+                prompt,
+                stream=True,
+                generation_config=GenerationConfig(response_mime_type="application/json")
+            )
+            for chunk in response:
+                if chunk.text:
+                    yield chunk.text
+        except Exception as e:
+            logger.error(f"Error streaming resume optimization: {e}")
+            yield json.dumps(self._fallback_resume(resume_data, job_data, relevant_fragments, tone, additional_context))
 
     def generate_cover_letter(
         self,
@@ -139,7 +156,7 @@ Rules:
         tone: str = "professional",
     ) -> str:
         """Generate a tailored cover letter text."""
-        if not self.client:
+        if not self.model:
             return self._fallback_cover_letter(resume_data, job_data, tone)
 
         prompt = f"""
@@ -164,11 +181,12 @@ Write 3 paragraphs:
 
 Keep it under 300 words. Do not add placeholders or [brackets].
 """
-        response = self.client.responses.create(
-            model=self.model,
-            input=[{"role": "user", "content": [{"type": "input_text", "text": prompt}]}],
-        )
-        return response.output_text.strip()
+        try:
+            response = self.model.generate_content(prompt)
+            return response.text.strip()
+        except Exception as e:
+            logger.error(f"Error generating cover letter: {e}")
+            return self._fallback_cover_letter(resume_data, job_data, tone)
 
     def _fallback_cover_letter(self, resume_data: ResumeStructuredData, job_data: dict[str, Any], tone: str) -> str:
         job_title = job_data.get("title", "the position")
@@ -188,7 +206,7 @@ Keep it under 300 words. Do not add placeholders or [brackets].
 
     def generate_mock_interview(self, resume_data: ResumeStructuredData, job_data: dict[str, Any]) -> dict[str, Any]:
         """Generate 5 behavioral and technical questions based on the candidate's resume and job."""
-        if not self.client:
+        if not self.model:
             return {"questions": ["Tell me about yourself.", "What is your biggest weakness?", "Why this company?", "Describe a challenge.", "Any questions for us?"]}
 
         prompt = f"""
@@ -202,19 +220,25 @@ Keep it under 300 words. Do not add placeholders or [brackets].
         Generate exactly 5 targeted interview questions. Incorporate both technical and behavioral questions specific to the candidate's experience.
         Return ONLY valid JSON in format: {{"questions": ["question 1", "question 2", "question 3", "question 4", "question 5"]}}
         """
-        response = self.client.responses.create(
-            model=self.model,
-            input=[{"role": "user", "content": [{"type": "input_text", "text": prompt}]}],
-            text={"format": {"type": "json_object"}},
-        )
-        return json.loads(response.output_text.strip())
+        try:
+            response = self.model.generate_content(
+                prompt,
+                generation_config=GenerationConfig(response_mime_type="application/json")
+            )
+            text = response.text.strip()
+            if text.startswith("```json"):
+                text = text[7:-3].strip()
+            return json.loads(text)
+        except Exception as e:
+            logger.error(f"Error generating mock interview: {e}")
+            return {"questions": ["Tell me about yourself.", "What is your biggest weakness?", "Why this company?", "Describe a challenge.", "Any questions for us?"]}
 
     def generate_interview_questions(
         self,
         resume_data: ResumeStructuredData,
         job_data: dict[str, Any],
     ) -> dict[str, list[str]]:
-        if not self.client:
+        if not self.model:
             return self._fallback_interview_questions(resume_data, job_data)
 
         prompt = f"""
@@ -242,16 +266,22 @@ Requirements:
 - Return ONLY valid JSON with keys:
   technical_questions, behavioral_questions, project_questions
 """
-        response = self.client.responses.create(
-            model=self.model,
-            input=[{"role": "user", "content": [{"type": "input_text", "text": prompt}]}],
-            text={"format": {"type": "json_object"}},
-        )
-        return json.loads(response.output_text.strip())
+        try:
+            response = self.model.generate_content(
+                prompt,
+                generation_config=GenerationConfig(response_mime_type="application/json")
+            )
+            text = response.text.strip()
+            if text.startswith("```json"):
+                text = text[7:-3].strip()
+            return json.loads(text)
+        except Exception as e:
+            logger.error(f"Error generating interview questions: {e}")
+            return self._fallback_interview_questions(resume_data, job_data)
 
     def generate_linkedin_profile(self, resume_data: ResumeStructuredData) -> dict[str, Any]:
         """Generate optimized LinkedIn headline and summary."""
-        if not self.client:
+        if not self.model:
             return {
                 "headline": f"{resume_data.headline or 'Professional'} | Seeking new opportunities",
                 "about": f"Passionate professional with experience in {', '.join(resume_data.skills[:3]) if resume_data.skills else 'various fields'}."
@@ -267,19 +297,28 @@ Requirements:
 
         Return ONLY valid JSON in format: {{"headline": "...", "about": "..."}}
         """
-        response = self.client.responses.create(
-            model=self.model,
-            input=[{"role": "user", "content": [{"type": "input_text", "text": prompt}]}],
-            text={"format": {"type": "json_object"}},
-        )
-        return json.loads(response.output_text.strip())
+        try:
+            response = self.model.generate_content(
+                prompt,
+                generation_config=GenerationConfig(response_mime_type="application/json")
+            )
+            text = response.text.strip()
+            if text.startswith("```json"):
+                text = text[7:-3].strip()
+            return json.loads(text)
+        except Exception as e:
+            logger.error(f"Error generating linkedin profile: {e}")
+            return {
+                "headline": f"{resume_data.headline or 'Professional'} | Seeking new opportunities",
+                "about": f"Passionate professional with experience in {', '.join(resume_data.skills[:3]) if resume_data.skills else 'various fields'}."
+            }
 
     def generate_tell_me_about_yourself(
         self,
         resume_data: ResumeStructuredData,
         target_job_role: str,
     ) -> dict[str, str]:
-        if not self.client:
+        if not self.model:
             return {"answer": self._fallback_tell_me_about_yourself(resume_data, target_job_role)}
 
         prompt = f"""
@@ -310,15 +349,21 @@ Return ONLY valid JSON:
   "answer": "..."
 }}
 """
-        response = self.client.responses.create(
-            model=self.model,
-            input=[{"role": "user", "content": [{"type": "input_text", "text": prompt}]}],
-            text={"format": {"type": "json_object"}},
-        )
-        return json.loads(response.output_text.strip())
+        try:
+            response = self.model.generate_content(
+                prompt,
+                generation_config=GenerationConfig(response_mime_type="application/json")
+            )
+            text = response.text.strip()
+            if text.startswith("```json"):
+                text = text[7:-3].strip()
+            return json.loads(text)
+        except Exception as e:
+            logger.error(f"Error generating tell me about yourself: {e}")
+            return {"answer": self._fallback_tell_me_about_yourself(resume_data, target_job_role)}
 
     def analyze_resume_claims(self, bullets: list[str]) -> dict[str, list[dict[str, str]]]:
-        if not self.client:
+        if not self.model:
             return {"analysis": [self._fallback_claim_analysis(bullet) for bullet in bullets]}
 
         prompt = f"""
@@ -351,41 +396,138 @@ Return ONLY valid JSON:
   ]
 }}
 """
-        response = self.client.responses.create(
-            model=self.model,
-            input=[{"role": "user", "content": [{"type": "input_text", "text": prompt}]}],
-            text={"format": {"type": "json_object"}},
-        )
-        return json.loads(response.output_text.strip())
+        try:
+            response = self.model.generate_content(
+                prompt,
+                generation_config=GenerationConfig(response_mime_type="application/json")
+            )
+            text = response.text.strip()
+            if text.startswith("```json"):
+                text = text[7:-3].strip()
+            return json.loads(text)
+        except Exception as e:
+            logger.error(f"Error analyzing resume claims: {e}")
+            return {"analysis": [self._fallback_claim_analysis(bullet) for bullet in bullets]}
 
     def stream_chat(self, user_message: str, chat_history: list[dict], resume_data: ResumeStructuredData | None) -> Generator[str, None, None]:
         """Stream chat completions for the AI Career Assistant."""
-        if not self.client:
-            yield "Mock Chatbot: Please configure the OpenAI API key to access full AI Chat capabilities."
+        if not self.model:
+            yield "Mock Chatbot: Please configure the Gemini API key to access full AI Chat capabilities."
             return
 
-        messages = [
-            {"role": "system", "content": [
-                {"type": "input_text", "text": "You are an elite Career Assistant and Resume Coach for FAANG-level candidates. Be concise, actionable, and encouraging."}
-            ]}
-        ]
-        
+        system_instruction = "You are an elite Career Assistant and Resume Coach for FAANG-level candidates. Be concise, actionable, and encouraging."
         if resume_data:
-            messages[0]["content"][0]["text"] += f"\n\nContext - The user's parsed resume is: {resume_data.model_dump_json(indent=2)}"
+            system_instruction += f"\n\nContext - The user's parsed resume is: {resume_data.model_dump_json(indent=2)}"
 
+        # Convert history to Gemini format
+        history = []
         for msg in chat_history:
-            messages.append({"role": msg["role"], "content": [{"type": "input_text", "text": msg["content"]}]})
-            
-        messages.append({"role": "user", "content": [{"type": "input_text", "text": user_message}]})
+            role = "user" if msg["role"] == "user" else "model"
+            history.append({"role": role, "parts": [msg["content"]]})
 
-        with self.client.responses.stream(
-            model=self.model,
-            input=messages,
-        ) as stream:
-            for event in stream:
-                delta = getattr(event, "delta", None)
-                if delta and isinstance(delta, str):
-                    yield delta
+        try:
+            chat = self.model.start_chat(history=history)
+            response = chat.send_message(user_message, stream=True)
+            for chunk in response:
+                if chunk.text:
+                    yield chunk.text
+        except Exception as e:
+            logger.error(f"Error in stream_chat: {e}")
+            yield "I encountered an error while processing your request. Please check your Gemini API configuration."
+
+    def improve_text(self, text: str, context: str | None = None) -> str:
+        """General purpose text improvement for resume sections using Gemini."""
+        if not self.model:
+            return f"Improved: {text} (Mock mode: Gemini API key missing)"
+
+        prompt = f"""
+You are an expert resume writer. Improve the following text for a professional resume.
+Focus on:
+- Strong action verbs
+- Quantifiable results (estimate if not provided, but keep it realistic)
+- Concise and professional language
+- ATS optimization
+
+Text to improve:
+{text}
+
+Additional context:
+{context or "General resume section"}
+
+Return ONLY the improved text, no preamble or extra commentary.
+"""
+        try:
+            response = self.model.generate_content(prompt)
+            return response.text.strip()
+        except Exception as e:
+            logger.error(f"Error in improve_text: {e}")
+            return text
+
+    def parse_resume_with_llm(self, text: str) -> dict[str, Any]:
+        """Convert raw resume text into a structured dictionary using Gemini."""
+        if not self.model:
+            return {}
+
+        prompt = f"""
+Convert this resume text into a STRICT structured JSON object. 
+DO NOT hallucinate. DO NOT add fake data.
+If a field is missing, leave it as empty string or empty array.
+
+JSON STRUCTURE:
+{{
+  "name": "Full Name",
+  "headline": "Professional Headline",
+  "email": "Email Address",
+  "phone": "Phone Number",
+  "location": "City, Country",
+  "summary": "Brief professional summary",
+  "skills": ["Skill 1", "Skill 2"],
+  "experience": [
+    {{
+      "company": "Company Name",
+      "role": "Job Title",
+      "start_date": "MM/YYYY",
+      "end_date": "MM/YYYY or Present",
+      "bullets": ["Achievement 1", "Achievement 2"]
+    }}
+  ],
+  "projects": [
+    {{
+      "name": "Project Name",
+      "description": "Project description and impact"
+    }}
+  ],
+  "education": [
+    {{
+      "institution": "University Name",
+      "degree": "Degree Name",
+      "graduation_date": "Year"
+    }}
+  ],
+  "links": {{
+    "linkedin": "LinkedIn URL",
+    "github": "GitHub URL",
+    "portfolio": "Portfolio or Personal Website URL"
+  }}
+}}
+
+RESUME TEXT:
+{text[:10000]}
+"""
+        try:
+            response = self.model.generate_content(
+                prompt,
+                generation_config=GenerationConfig(response_mime_type="application/json")
+            )
+            text_response = response.text.strip()
+            if text_response.startswith("```json"):
+                text_response = text_response[7:-3].strip()
+            elif text_response.startswith("```"):
+                text_response = text_response[3:-3].strip()
+            return json.loads(text_response)
+        except Exception as e:
+            logger.error(f"Error in parse_resume_with_llm: {e}")
+            return {}
 
     def _fallback_resume(
         self,

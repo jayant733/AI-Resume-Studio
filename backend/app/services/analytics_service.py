@@ -4,7 +4,7 @@ import logging
 from typing import Any, Dict, List
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from app.db.tables import User, Resume, GeneratedOutput, Job
+from app.db.tables import AppliedJob, GeneratedOutput, Resume, User
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -30,11 +30,50 @@ class AnalyticsService:
         ]
         avg_improvement = sum(improvements) / len(improvements) if improvements else 0
 
+        ats_scores_after = [
+            (o.evaluation_data.get("overall_score", {}).get("after") or 0)
+            for o in outputs if o.evaluation_data
+        ]
+        avg_ats_score = sum(ats_scores_after) / len(ats_scores_after) if ats_scores_after else 0
+
+        last_output = (
+            self.db.query(GeneratedOutput)
+            .join(Resume)
+            .filter(Resume.user_id == user_id)
+            .order_by(GeneratedOutput.created_at.desc())
+            .first()
+        )
+        last_ats_score = None
+        if last_output and last_output.evaluation_data:
+            last_ats_score = last_output.evaluation_data.get("overall_score", {}).get("after")
+
+        total_applications = self.db.query(AppliedJob).filter(AppliedJob.user_id == user_id).count()
+        interview_or_offer = (
+            self.db.query(AppliedJob)
+            .filter(AppliedJob.user_id == user_id, AppliedJob.status.in_(["interview", "offer"]))
+            .count()
+        )
+        interview_rate = (interview_or_offer / total_applications * 100) if total_applications else 0
+
+        strength_label = "Developing"
+        if avg_ats_score >= 85:
+            strength_label = "Expert"
+        elif avg_ats_score >= 70:
+            strength_label = "Strong"
+        elif avg_ats_score >= 55:
+            strength_label = "Competitive"
+
         return {
             "stats": {
                 "total_resumes": total_resumes,
                 "total_optimizations": total_optimizations,
                 "avg_improvement": round(avg_improvement, 1),
+                "avg_ats_score": round(avg_ats_score, 1),
+                "last_output_id": last_output.id if last_output else None,
+                "last_ats_score": last_ats_score,
+                "total_applications": total_applications,
+                "interview_rate": round(interview_rate, 1),
+                "profile_strength": strength_label,
                 "credits_remaining": user.credits,
                 "tier": user.subscription_tier,
                 "status": user.subscription_status

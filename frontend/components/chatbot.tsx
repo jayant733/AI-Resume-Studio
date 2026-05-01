@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { MessageCircle, X, Send } from "lucide-react";
-import { loadState } from "@/lib/storage";
+import { APP_STATE_KEY, loadState } from "@/lib/storage";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -21,7 +21,7 @@ export function Chatbot() {
 
   const handleSend = async () => {
     if (!input.trim()) return;
-    const state = loadState();
+    const state = (loadState(APP_STATE_KEY) || {}) as any;
     if (!state.authToken || !state.currentUser) {
       setMessages((prev) => [...prev, { role: "assistant", content: "Please log in first to use the career copilot." }]);
       return;

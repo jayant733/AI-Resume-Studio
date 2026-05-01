@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/card";
-import { generateResume, getJobStatus } from "@/lib/api";
-import { loadState, mergeState } from "@/lib/storage";
+import { createApplication, generateResume, getJobStatus } from "@/lib/api";
+import { APP_STATE_KEY, loadState, mergeState } from "@/lib/storage";
 import { JobAnalysis, UploadResponse } from "@/lib/types";
 
 function Metric({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -42,7 +42,7 @@ export default function SuggestionsPage() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    const state = loadState();
+    const state = (loadState(APP_STATE_KEY) || {}) as any;
     if (!state.upload || !state.job) {
       router.replace("/upload");
       return;
@@ -59,7 +59,7 @@ export default function SuggestionsPage() {
   }
 
   async function handleGenerate() {
-    const state = loadState();
+    const state = (loadState(APP_STATE_KEY) || {}) as any;
     if (!state.upload || !state.job) return;
 
     setLoading(true);
@@ -85,7 +85,24 @@ export default function SuggestionsPage() {
           const status = await getJobStatus(job_id);
           if (status.status === "done" && status.result) {
             stopPolling();
-            mergeState({ generated: status.result });
+            
+            // Auto-create application
+            try {
+              const state = (loadState(APP_STATE_KEY) || {}) as any;
+              const token = state.authToken || "";
+              if (token && state.job) {
+                await createApplication({
+                  company: state.draftCompany || "Unknown Company",
+                  job_title: state.draftJobTitle || "Software Engineer",
+                  output_id: status.result.output_id,
+                  status: "applied"
+                }, token);
+              }
+            } catch (appErr) {
+              console.error("Failed to auto-create application:", appErr);
+            }
+
+            mergeState(APP_STATE_KEY, { generated: status.result });
             router.push("/preview");
           } else if (status.status === "failed") {
             stopPolling();

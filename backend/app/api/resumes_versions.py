@@ -12,6 +12,29 @@ from app.services.auth_service import get_current_user
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+@router.get("/")
+def list_resumes(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Lists resumes owned by the current user (for builder/recruiter UI selection)."""
+    resumes = (
+        db.query(Resume)
+        .filter(Resume.user_id == current_user.id)
+        .order_by(Resume.created_at.desc())
+        .all()
+    )
+    result = []
+    for resume in resumes:
+        parsed = resume.parsed_data or {}
+        result.append(
+            {
+                "id": resume.id,
+                "name": parsed.get("name"),
+                "headline": parsed.get("headline"),
+                "source_type": resume.source_type,
+                "created_at": resume.created_at.isoformat(),
+            }
+        )
+    return result
+
 @router.post("/")
 def create_manual_resume(payload: dict[str, Any], db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Creates a new resume from scratch via the builder."""

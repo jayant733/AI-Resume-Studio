@@ -44,24 +44,22 @@ def get_template(template_id: str, current_user: User = Depends(get_current_user
         raise HTTPException(status_code=404, detail="Template not found")
     return meta
 
-@router.post("/render-preview", response_class=HTMLResponse)
+@router.post("/render-preview")
 def render_preview(payload: dict[str, Any], db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
     Renders a live preview HTML for the builder.
     """
-    resume_data = payload.get("resume_data")
+    resume_data = payload.get("resume_data") or payload.get("resume_json")
     template_id = payload.get("template_id", "classic")
 
     if not resume_data:
         raise HTTPException(status_code=400, detail="resume_data is required")
 
     ac = AccessControlService(db)
-    # We allow previewing even premium templates for conversion, 
-    # but we will block export in the next endpoint.
     
     pdf_service = PDFService()
     html = pdf_service.render_html_preview(resume_data, template_id)
-    return html
+    return {"html": html}
 
 @router.post("/export")
 def export_pdf(payload: dict[str, Any], db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

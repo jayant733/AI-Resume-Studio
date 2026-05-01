@@ -18,9 +18,9 @@ class OAuthService:
             token_url = "https://oauth2.googleapis.com/token"
             data = {
                 "code": code,
-                "client_id": self.settings.google_client_id,
-                "client_secret": self.settings.google_client_secret,
-                "redirect_uri": self.settings.google_redirect_uri,
+                "client_id": self.settings.GOOGLE_CLIENT_ID,
+                "client_secret": self.settings.GOOGLE_CLIENT_SECRET,
+                "redirect_uri": self.settings.GOOGLE_REDIRECT_URI,
                 "grant_type": "authorization_code",
             }
             token_res = await client.post(token_url, data=data)
@@ -42,10 +42,10 @@ class OAuthService:
             # 1. Exchange code for access token
             token_url = "https://github.com/login/oauth/access_token"
             data = {
-                "client_id": self.settings.github_client_id,
-                "client_secret": self.settings.github_client_secret,
+                "client_id": self.settings.GITHUB_CLIENT_ID,
+                "client_secret": self.settings.GITHUB_CLIENT_SECRET,
                 "code": code,
-                "redirect_uri": self.settings.github_redirect_uri,
+                "redirect_uri": self.settings.GITHUB_REDIRECT_URI,
             }
             token_res = await client.post(token_url, data=data, headers={"Accept": "application/json"})
             token_res.raise_for_status()

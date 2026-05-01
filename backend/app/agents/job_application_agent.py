@@ -7,13 +7,13 @@ from app.services.embedding_service import EmbeddingService
 from app.services.job_scraper import JobScraper
 from app.services.llm_service import LLMService
 from app.services.vector_store import VectorStoreService
-from app.services.document_parser import DocumentParserService
+from app.services.resume_parser import ResumeParserService
 
 
 class JobApplicationAgent:
     def __init__(self) -> None:
         self.scraper = JobScraper()
-        self.parser = DocumentParserService()
+        self.parser = ResumeParserService()
         self.llm_service = LLMService()
         self.embedding_service = EmbeddingService()
         self.vector_store = VectorStoreService()

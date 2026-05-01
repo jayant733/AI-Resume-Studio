@@ -7,7 +7,7 @@ import { Card } from "@/components/card";
 import { DiffView } from "@/components/diff-view";
 import { ResumePreview } from "@/components/resume-preview";
 import { generateCoverLetter, getATSScore, getDiff, resolvePdfUrl } from "@/lib/api";
-import { loadState } from "@/lib/storage";
+import { APP_STATE_KEY, loadState } from "@/lib/storage";
 import {
   ATSScoreResponse,
   CoverLetterResponse,
@@ -132,7 +132,7 @@ export default function PreviewPage() {
   const [coverError, setCoverError] = useState<string | null>(null);
 
   useEffect(() => {
-    const state = loadState();
+    const state = (loadState(APP_STATE_KEY) || {}) as any;
     if (!state.upload) {
       router.replace("/upload");
       return;
@@ -161,7 +161,7 @@ export default function PreviewPage() {
   }, [activeTab, generated, diffData, diffLoading, atsData, atsLoading]);
 
   async function handleGenerateCoverLetter() {
-    const state = loadState();
+    const state = (loadState(APP_STATE_KEY) || {}) as any;
     if (!state.upload || !state.job) return;
     setCoverLoading(true);
     setCoverError(null);
@@ -223,10 +223,10 @@ export default function PreviewPage() {
       )}
 
       {activeTab === "diff" && generated && (
-        <div className="rounded-[28px] border border-slate-200 bg-white/95 p-8 shadow-soft">
+          <div className="rounded-[28px] border border-slate-200 bg-white/95 p-8 shadow-soft">
           <h2 className="mb-6 text-lg font-semibold text-ink">Before vs. After — AI Changes</h2>
           {diffLoading && <p className="text-sm text-slate animate-pulse">Loading diff…</p>}
-          {diffData && <DiffView original={diffData.original} optimized={diffData.optimized} />}
+          {diffData && <DiffView data={diffData} />}
         </div>
       )}
 

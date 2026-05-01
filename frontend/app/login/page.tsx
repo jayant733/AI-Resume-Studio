@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Mail, Lock, Loader2, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { login } from '@/lib/api';
-import { mergeState } from '@/lib/storage';
+import { APP_STATE_KEY, mergeState } from '@/lib/storage';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -15,8 +15,23 @@ export default function LoginPage() {
   
   const router = useRouter();
 
+  useEffect(() => {
+    setLoading(false);
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        setLoading(false);
+      }
+    };
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, []);
+
   const handleSocialLogin = (provider: 'google' | 'github') => {
-    window.location.href = `${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/oauth/${provider}`;
+    if (provider === 'github') {
+      window.location.href = "http://localhost:8000/auth/oauth/github";
+    } else {
+      window.location.href = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000") + "/auth/oauth/google";
+    }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -26,7 +41,7 @@ export default function LoginPage() {
     
     try {
       const result = await login({ email, password });
-      mergeState({ authToken: result.access_token, currentUser: result.user });
+      mergeState(APP_STATE_KEY, { authToken: result.access_token, currentUser: result.user });
       router.push('/upload');
     } catch (err: any) {
       setError(err?.message || 'Login failed. Please check your credentials.');

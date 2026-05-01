@@ -13,9 +13,9 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://postgres:postgres@postgres:5432/resume_ai"
     auth_secret_key: str = "change-me-in-production"
     auth_token_expiry_hours: int = 24
-    openai_api_key: str | None = None
-    openai_chat_model: str = "gpt-4.1-mini"
-    openai_embedding_model: str = "text-embedding-3-small"
+    gemini_api_key: str | None = None
+    gemini_model: str = "gemini-flash-latest"
+    gemini_embedding_model: str = "models/gemini-embedding-001"
     local_embedding_model: str = "BAAI/bge-small-en-v1.5"
     vector_store_path: str = str(Path("data") / "chroma")
     upload_dir: str = str(Path("data") / "uploads")
@@ -26,6 +26,16 @@ class Settings(BaseSettings):
     stripe_webhook_secret: str = "whsec_mock"
     stripe_price_pro: str = "price_pro_mock"
     stripe_price_premium: str = "price_premium_mock"
+
+    # Google OAuth
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    GOOGLE_REDIRECT_URI: str = "http://localhost:8000/oauth/callback"
+
+    # GitHub OAuth
+    GITHUB_CLIENT_ID: str = ""
+    GITHUB_CLIENT_SECRET: str = ""
+    GITHUB_REDIRECT_URI: str = "http://localhost:8000/auth/oauth/github/callback"
 
     model_config = SettingsConfigDict(
         env_file=".env",

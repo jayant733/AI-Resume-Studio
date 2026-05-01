@@ -4,10 +4,11 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.agents.resume_pipeline import ResumeOptimizationAgent
@@ -41,8 +42,8 @@ from app.models.schemas import (
     UploadResumeResponse,
 )
 from app.services.auth_service import get_optional_current_user
+from app.services.resume_parser import ResumeParserService
 from app.services.ats_scorer import ATSScorer
-from app.services.document_parser import DocumentParserService
 from app.services.embedding_service import EmbeddingService
 from app.services.job_scraper import JobScraper
 from app.services.llm_service import LLMService
@@ -71,79 +72,105 @@ async def upload_resume(
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_optional_current_user),
 ):
-    parser = DocumentParserService()
-    embedder = EmbeddingService()
-    vector_store = VectorStoreService()
-    llm_service = LLMService()
-    settings = get_settings()
+    try:
+        logger.info(f"🚀 Starting resume upload for user: {current_user.email if current_user else email or 'Anonymous'}")
+        parser = ResumeParserService()
+        embedder = EmbeddingService()
+        vector_store = VectorStoreService()
+        llm_service = LLMService()
+        settings = get_settings()
 
-    user = current_user
-    if not user and email:
-        user = db.query(User).filter(User.email == email).first()
-        if not user:
-            user = User(email=email, full_name=full_name)
+        user = current_user
+        if not user and email:
+            logger.info(f"Looking up or creating user for email: {email}")
+            user = db.query(User).filter(User.email == email).first()
+            if not user:
+                user = User(email=email, full_name=full_name)
+                db.add(user)
+                db.flush()
+                logger.info(f"Created new user with ID: {user.id}")
+        elif user and full_name and not user.full_name:
+            user.full_name = full_name
             db.add(user)
             db.flush()
-    elif user and full_name and not user.full_name:
-        user.full_name = full_name
-        db.add(user)
-        db.flush()
 
-    upload_dir = Path(settings.upload_dir)
-    image_path = None
+        upload_dir = Path(settings.upload_dir)
+        image_path = None
 
-    if linkedin_json:
-        raw_text, parsed_resume = parser.parse_linkedin_json(json.loads(linkedin_json))
-        original_filename = "linkedin.json"
-        actual_source_type = "linkedin_json"
-    elif resume_file:
-        suffix = Path(resume_file.filename or "resume.pdf").suffix.lower()
-        actual_source_type = "docx" if suffix == ".docx" else source_type
-        fallback_name = f"resume{suffix or '.pdf'}"
-        file_path = upload_dir / f"{datetime.utcnow().strftime('%Y%m%d%H%M%S')}-{resume_file.filename or fallback_name}"
-        try:
-            content = await resume_file.read()
-            file_path.write_bytes(content)
-        except Exception as e:
-            logger.exception("❌ FILE WRITE FAILED")
-            raise HTTPException(status_code=500, detail=f"File write failed: {str(e)}")
-        raw_text, parsed_resume = parser.parse_file(file_path, actual_source_type)
-        original_filename = resume_file.filename
-    else:
-        raise HTTPException(status_code=400, detail="Provide either resume_file or linkedin_json.")
+        if linkedin_json:
+            logger.info("Processing LinkedIn JSON")
+            parsed_resume = parser.parse_linkedin_json(json.loads(linkedin_json))
+            original_filename = "linkedin.json"
+            actual_source_type = "linkedin_json"
+        elif resume_file:
+            logger.info(f"Processing resume file: {resume_file.filename}")
+            filename = resume_file.filename or "resume.pdf"
+            suffix = Path(filename).suffix.lower()
+            actual_source_type = suffix.lstrip(".") if suffix else source_type
+            
+            timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+            file_path = upload_dir / f"{timestamp}-{filename}"
+            try:
+                content = await resume_file.read()
+                file_path.write_bytes(content)
+                logger.info(f"File saved to {file_path}")
+            except Exception as e:
+                logger.exception("❌ FILE WRITE FAILED")
+                raise HTTPException(status_code=500, detail=f"File write failed: {str(e)}")
+            
+            logger.info(f"Parsing file with type: {actual_source_type}")
+            parsed_resume = parser.parse_resume(file_path, actual_source_type)
+            original_filename = filename
+        else:
+            logger.error("No resume file or LinkedIn JSON provided")
+            raise HTTPException(status_code=400, detail="Provide either resume_file or linkedin_json.")
 
-    if profile_image:
-        image_path = upload_dir / f"{datetime.utcnow().strftime('%Y%m%d%H%M%S')}-{profile_image.filename or 'profile.png'}"
-        image_path.write_bytes(await profile_image.read())
+        if profile_image:
+            logger.info(f"Processing profile image: {profile_image.filename}")
+            img_timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+            image_path = upload_dir / f"{img_timestamp}-{profile_image.filename or 'profile.png'}"
+            image_path.write_bytes(await profile_image.read())
 
-    image_caption = llm_service.describe_image(image_path) if image_path else None
+        logger.info("Extracting image caption with LLM")
+        image_caption = llm_service.describe_image(image_path) if image_path else None
 
-    resume = Resume(
-        user_id=user.id if user else None,
-        source_type=actual_source_type,
-        original_filename=original_filename,
-        raw_text=raw_text,
-        parsed_data=parsed_resume.model_dump(),
-        profile_image_path=str(image_path) if image_path else None,
-        image_caption=image_caption,
-    )
-    db.add(resume)
-    db.commit()
-    db.refresh(resume)
+        logger.info("Creating Resume record in database")
+        resume = Resume(
+            user_id=user.id if user else None,
+            source_type=actual_source_type,
+            original_filename=original_filename,
+            raw_text=json.dumps(parsed_resume.model_dump(), indent=2),
+            parsed_data=parsed_resume.model_dump(),
+            profile_image_path=str(image_path) if image_path else None,
+            image_caption=image_caption,
+        )
+        db.add(resume)
+        db.commit()
+        db.refresh(resume)
 
-    fragments = []
-    for entry in parsed_resume.experience:
-        fragments.extend(entry.bullets or [f"{entry.title} at {entry.company or 'Company'}"])
-    embeddings = embedder.embed_texts(fragments)
-    # ✅ FIX: convert numpy floats → Python floats
-    clean_embeddings = [
-        [float(x) for x in vec]
-        for vec in embeddings
-    ]
-    vector_store.upsert_resume_fragments(resume.id, fragments, clean_embeddings)
+        logger.info(f"Generating embeddings for resume {resume.id}")
+        fragments = []
+        for entry in parsed_resume.experience:
+            bullets = entry.bullets if isinstance(entry.bullets, list) else []
+            fragments.extend(bullets or [f"{entry.title} at {entry.company or 'Company'}"])
+        
+        if not fragments:
+            fragments = ["New Resume"]
+            
+        embeddings = embedder.embed_texts(fragments)
+        clean_embeddings = [
+            [float(x) for x in vec]
+            for vec in embeddings
+        ]
+        vector_store.upsert_resume_fragments(resume.id, fragments, clean_embeddings)
 
-    logger.info("Uploaded resume %s", resume.id)
-    return UploadResumeResponse(resume_id=resume.id, parsed_resume=parsed_resume, image_caption=image_caption)
+        logger.info(f"✅ Uploaded resume {resume.id} successfully")
+        return UploadResumeResponse(resume_id=resume.id, parsed_resume=parsed_resume, image_caption=image_caption)
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
+        logger.exception("❌ UPLOAD RESUME CRASHED")
+        raise HTTPException(status_code=500, detail=f"Server error during upload: {str(e)}")
 
 
 # ---------------------------------------------------------------------------
@@ -152,7 +179,7 @@ async def upload_resume(
 
 @router.post("/analyze-job", response_model=AnalyzeJobResponse)
 def analyze_job(payload: AnalyzeJobRequest, db: Session = Depends(get_db)):
-    parser = DocumentParserService()
+    parser = ResumeParserService()
     embedder = EmbeddingService()
     vector_store = VectorStoreService()
     matcher = MatchingService()
@@ -195,7 +222,7 @@ def rank_candidates(
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_optional_current_user),
 ):
-    parser = DocumentParserService()
+    parser = ResumeParserService()
     matcher = MatchingService()
 
     resumes = db.query(Resume).filter(Resume.id.in_(payload.resume_ids)).all()
@@ -222,7 +249,7 @@ def generate_interview_questions(
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_optional_current_user),
 ):
-    parser = DocumentParserService()
+    parser = ResumeParserService()
     llm = LLMService()
 
     if payload.resume_id:
@@ -233,7 +260,7 @@ def generate_interview_questions(
             raise HTTPException(status_code=403, detail="You do not have access to this resume.")
         resume_data = ResumeStructuredData(**resume.parsed_data)
     elif payload.resume_text:
-        resume_data = parser.parse_text(payload.resume_text)
+        resume_data = parser.parse_resume_from_text(payload.resume_text)
     else:
         raise HTTPException(status_code=400, detail="Provide either resume_id or resume_text.")
 
@@ -258,13 +285,30 @@ def generate_tell_me_about_yourself(payload: TellMeAboutYourselfRequest):
 
 @router.post("/detect-resume-claims", response_model=ResumeClaimDetectionResponse)
 def detect_resume_claims(payload: ResumeClaimDetectionRequest):
-    parser = DocumentParserService()
+    parser = ResumeParserService()
     llm = LLMService()
     bullets = parser.extract_resume_bullets(payload.resume_text)
     if not bullets:
         raise HTTPException(status_code=400, detail="No resume bullets or achievement statements could be extracted.")
     result = llm.analyze_resume_claims(bullets)
     return ResumeClaimDetectionResponse(**result)
+
+
+class ImproveTextRequest(BaseModel):
+    text: str
+    context: Optional[str] = None
+
+
+@router.post("/ai/improve")
+def improve_text(payload: ImproveTextRequest):
+    logger.info(f"AI Improve requested for text: {payload.text[:50]}...")
+    llm = LLMService()
+    try:
+        improved = llm.improve_text(payload.text, payload.context)
+        return {"improved": improved}
+    except Exception as e:
+        logger.error(f"AI Improve failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/apply-to-job", response_model=JobApplicationResponse)
@@ -594,7 +638,7 @@ def download_cover_letter(resume_id: int = Query(...), job_id: int = Query(...))
 @router.post("/scrape-job", response_model=ScrapeJobResponse)
 def scrape_job(payload: ScrapeJobRequest):
     scraper = JobScraper()
-    parser = DocumentParserService()
+    parser = ResumeParserService()
     try:
         raw_text, title, company = scraper.scrape(str(payload.url))
     except Exception as exc:  # noqa: BLE001

@@ -87,6 +87,7 @@ def signup(payload: AuthSignupRequest, db: Session = Depends(get_db)):
             email=user.email or "",
             full_name=user.full_name,
             subscription_tier=user.subscription_tier,
+            role=user.role,
         ),
     )
 
@@ -112,6 +113,7 @@ def login(payload: AuthLoginRequest, db: Session = Depends(get_db)):
             email=user.email or "",
             full_name=user.full_name,
             subscription_tier=user.subscription_tier,
+            role=user.role,
         ),
     )
 
@@ -123,6 +125,7 @@ def me(current_user: User = Depends(get_current_user)):
         email=current_user.email or "",
         full_name=current_user.full_name,
         subscription_tier=current_user.subscription_tier,
+        role=current_user.role,
     )
 
 from sqlalchemy import text

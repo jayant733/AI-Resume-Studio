@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import logging
-from fastapi import APIRouter, Depends, HTTPException, Response
+import urllib.parse
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -15,25 +16,8 @@ from app.utils.config import get_settings
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-@router.get("/google")
-def google_login():
-    """Redirects to Google OAuth page."""
-    settings = get_settings()
-    scope = "openid email profile"
-    url = (
-        f"https://accounts.google.com/o/oauth2/v2/auth"
-        f"?response_type=code"
-        f"&client_id={settings.google_client_id}"
-        f"&redirect_uri={settings.google_redirect_uri}"
-        f"&scope={scope}"
-    )
-    return RedirectResponse(url)
-
-@router.get("/google/callback")
-async def google_callback(code: str, response: Response, db: Session = Depends(get_db)):
-    """Handles Google OAuth callback."""
+async def _handle_google_callback(code: str, db: Session):
     oauth_service = OAuthService()
-    auth_service = AuthService()
     settings = get_settings()
 
     try:
@@ -70,30 +54,15 @@ async def google_callback(code: str, response: Response, db: Session = Depends(g
             user.profile_image_url = user_info.get("picture")
         db.commit()
 
-    # Issue tokens
-    access_token = auth_service.create_access_token(user.id)
-    refresh_token = auth_service.create_refresh_token(user.id)
-    auth_service.set_auth_cookies(response, access_token, refresh_token)
-
-    return RedirectResponse(f"{settings.backend_cors_origins.split(',')[0]}/dashboard")
-
-@router.get("/github")
-def github_login():
-    """Redirects to GitHub OAuth page."""
-    settings = get_settings()
-    url = (
-        f"https://github.com/login/oauth/authorize"
-        f"?client_id={settings.github_client_id}"
-        f"&redirect_uri={settings.github_redirect_uri}"
-        f"&scope=user:email"
-    )
-    return RedirectResponse(url)
-
-@router.get("/github/callback")
-async def github_callback(code: str, response: Response, db: Session = Depends(get_db)):
-    """Handles GitHub OAuth callback."""
-    oauth_service = OAuthService()
+    # Issue access token (bearer) and hand it back to the frontend callback handler.
     auth_service = AuthService()
+    access_token = auth_service.create_access_token(user)
+    frontend_url = (settings.backend_cors_origins.split(",")[0] or "http://localhost:3000").rstrip("/")
+    encoded = urllib.parse.quote(access_token, safe="")
+    return RedirectResponse(f"{frontend_url}/auth/callback?token={encoded}&provider=google")
+
+async def _handle_github_callback(code: str, db: Session):
+    oauth_service = OAuthService()
     settings = get_settings()
 
     try:
@@ -129,9 +98,44 @@ async def github_callback(code: str, response: Response, db: Session = Depends(g
             user.profile_image_url = user_info.get("avatar_url")
         db.commit()
 
-    # Issue tokens
-    access_token = auth_service.create_access_token(user.id)
-    refresh_token = auth_service.create_refresh_token(user.id)
-    auth_service.set_auth_cookies(response, access_token, refresh_token)
+    auth_service = AuthService()
+    access_token = auth_service.create_access_token(user)
+    frontend_url = (settings.backend_cors_origins.split(",")[0] or "http://localhost:3000").rstrip("/")
+    encoded = urllib.parse.quote(access_token, safe="")
+    return RedirectResponse(f"{frontend_url}/auth/callback?token={encoded}&provider=github")
 
-    return RedirectResponse(f"{settings.backend_cors_origins.split(',')[0]}/dashboard")
+@router.get("/google")
+def google_login():
+    """Redirects to Google OAuth page."""
+    settings = get_settings()
+    scope = "openid email profile"
+    url = (
+        f"https://accounts.google.com/o/oauth2/v2/auth"
+        f"?response_type=code"
+        f"&client_id={settings.GOOGLE_CLIENT_ID}"
+        f"&redirect_uri={settings.GOOGLE_REDIRECT_URI}"
+        f"&scope={scope}"
+    )
+    return RedirectResponse(url)
+
+@router.get("/google/callback")
+async def google_callback(code: str, db: Session = Depends(get_db)):
+    """Handles Google OAuth callback."""
+    return await _handle_google_callback(code, db)
+
+@router.get("/github")
+def github_login():
+    """Redirects to GitHub OAuth page."""
+    settings = get_settings()
+    url = (
+        f"https://github.com/login/oauth/authorize"
+        f"?client_id={settings.GITHUB_CLIENT_ID}"
+        f"&redirect_uri={settings.GITHUB_REDIRECT_URI}"
+        f"&scope=user:email"
+    )
+    return RedirectResponse(url)
+
+@router.get("/github/callback")
+async def github_callback(code: str, db: Session = Depends(get_db)):
+    """Handles GitHub OAuth callback."""
+    return await _handle_github_callback(code, db)

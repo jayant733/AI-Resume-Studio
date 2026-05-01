@@ -43,6 +43,8 @@ export type User = {
   email: string;
   full_name?: string | null;
   subscription_tier: string;
+  role?: "user" | "recruiter" | string;
+  credits?: number;
 };
 
 export type AuthResponse = {

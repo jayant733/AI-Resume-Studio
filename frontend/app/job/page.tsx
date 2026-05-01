@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/card";
 import { analyzeJob, scrapeJob } from "@/lib/api";
-import { loadState, mergeState } from "@/lib/storage";
+import { APP_STATE_KEY, loadState, mergeState } from "@/lib/storage";
 
 export default function JobPage() {
   const router = useRouter();
@@ -21,7 +21,7 @@ export default function JobPage() {
   const [scrapedBanner, setScrapedBanner] = useState(false);
 
   useEffect(() => {
-    const state = loadState();
+    const state = (loadState(APP_STATE_KEY) || {}) as any;
     if (!state.upload) {
       router.replace("/upload");
       return;
@@ -50,7 +50,7 @@ export default function JobPage() {
   }
 
   async function handleAnalyze() {
-    const state = loadState();
+    const state = (loadState(APP_STATE_KEY) || {}) as any;
     if (!state.upload) {
       router.replace("/upload");
       return;
@@ -66,7 +66,7 @@ export default function JobPage() {
         job_description: description,
       }, state.authToken);
       console.log("Analysis successful:", result);
-      mergeState({ job: result, draftJobTitle: jobTitle, draftCompany: company, draftDescription: description });
+      mergeState(APP_STATE_KEY, { job: result, draftJobTitle: jobTitle, draftCompany: company, draftDescription: description });
       router.push("/suggestions");
     } catch (submissionError) {
       console.error("ANALYSIS ERROR DETAILED:", submissionError);

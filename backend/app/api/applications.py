@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from app.db.session import get_db
-from app.db.tables import User, AppliedJob, GeneratedOutput
+from app.db.tables import User, AppliedJob, GeneratedOutput, Job
 from app.services.auth_service import get_current_user
 
 router = APIRouter()
@@ -32,10 +32,42 @@ class ApplicationResponse(BaseModel):
     status: str
     output_id: Optional[int]
     ats_score: Optional[float]
+    notes: Optional[str]
+    job_description: Optional[str]
+    resume_name: Optional[str]
     created_at: str
 
     class Config:
         from_attributes = True
+
+def enrich_app_data(app: AppliedJob):
+    ats_score = None
+    job_description = None
+    resume_name = None
+    
+    if app.output:
+        if app.output.evaluation_data:
+            ats_score = app.output.evaluation_data.get("overall_score", {}).get("after")
+        if app.output.resume:
+            resume_name = app.output.resume.original_filename
+            
+    # Fetch job description through secondary relationship or manually
+    if app.job:
+        job_description = app.job.description
+
+    return {
+        "id": app.id,
+        "company": app.company,
+        "job_title": app.job_title,
+        "job_url": app.job_url,
+        "status": app.status,
+        "output_id": app.output_id,
+        "ats_score": ats_score,
+        "notes": app.notes,
+        "job_description": job_description,
+        "resume_name": resume_name,
+        "created_at": app.created_at.isoformat()
+    }
 
 @router.post("/", response_model=ApplicationResponse)
 def create_application(
@@ -61,16 +93,7 @@ def create_application(
     db.commit()
     db.refresh(new_app)
     
-    # Enrich response with ATS score
-    ats_score = None
-    if new_app.output and new_app.output.evaluation_data:
-        ats_score = new_app.output.evaluation_data.get("overall_score", {}).get("after")
-
-    return {
-        **new_app.__dict__,
-        "ats_score": ats_score,
-        "created_at": new_app.created_at.isoformat()
-    }
+    return enrich_app_data(new_app)
 
 @router.get("/", response_model=List[ApplicationResponse])
 def list_applications(
@@ -78,24 +101,7 @@ def list_applications(
     db: Session = Depends(get_db)
 ):
     apps = db.query(AppliedJob).filter(AppliedJob.user_id == current_user.id).order_by(AppliedJob.created_at.desc()).all()
-    
-    result = []
-    for app in apps:
-        ats_score = None
-        if app.output and app.output.evaluation_data:
-            ats_score = app.output.evaluation_data.get("overall_score", {}).get("after")
-            
-        result.append({
-            "id": app.id,
-            "company": app.company,
-            "job_title": app.job_title,
-            "job_url": app.job_url,
-            "status": app.status,
-            "output_id": app.output_id,
-            "ats_score": ats_score,
-            "created_at": app.created_at.isoformat()
-        })
-    return result
+    return [enrich_app_data(app) for app in apps]
 
 @router.patch("/{app_id}")
 def update_application_status(

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import axios from 'axios';
+import { APP_STATE_KEY, loadState } from '@/lib/storage';
 
 export interface ResumeJSON {
   name: string;
@@ -26,8 +26,8 @@ export interface ResumeJSON {
     degree: string;
     graduation_date: string;
   }[];
-  certifications?: string[];
-  projects?: {
+  certifications: string[];
+  projects: {
     name: string;
     description: string;
   }[];
@@ -37,6 +37,8 @@ interface ResumeState {
   resumeData: ResumeJSON;
   templateId: string;
   isSaving: boolean;
+  manualResumeId: number | null;
+  activeSections: string[];
   
   // Actions
   setResumeData: (data: Partial<ResumeJSON>) => void;
@@ -47,6 +49,10 @@ interface ResumeState {
   updateEducation: (index: number, data: any) => void;
   addEducation: () => void;
   removeEducation: (index: number) => void;
+  updateProject: (index: number, data: any) => void;
+  addProject: () => void;
+  removeProject: (index: number) => void;
+  toggleSection: (section: string) => void;
   saveResume: (userId: number) => Promise<number | null>;
 }
 
@@ -54,10 +60,17 @@ const initialData: ResumeJSON = {
   name: '',
   headline: '',
   summary: '',
-  contact: { email: '', phone: '', location: '' },
+  contact: { 
+    email: '', 
+    phone: '', 
+    location: '',
+    linkedin: ''
+  },
   skills: [],
   experience: [],
   education: [],
+  certifications: [],
+  projects: [],
 };
 
 export const useResumeStore = create<ResumeState>()(
@@ -66,6 +79,8 @@ export const useResumeStore = create<ResumeState>()(
       resumeData: initialData,
       templateId: 'classic',
       isSaving: false,
+      manualResumeId: null,
+      activeSections: ['summary', 'experience', 'education', 'skills'],
 
       setResumeData: (data) => 
         set((state) => ({ resumeData: { ...state.resumeData, ...data } })),
@@ -124,16 +139,70 @@ export const useResumeStore = create<ResumeState>()(
           }
         })),
 
+      updateProject: (index, data) => 
+        set((state) => {
+          const newProj = [...state.resumeData.projects];
+          newProj[index] = { ...newProj[index], ...data };
+          return { resumeData: { ...state.resumeData, projects: newProj } };
+        }),
+
+      addProject: () => 
+        set((state) => ({
+          resumeData: {
+            ...state.resumeData,
+            projects: [
+              ...state.resumeData.projects,
+              { name: '', description: '' }
+            ]
+          }
+        })),
+
+      removeProject: (index) => 
+        set((state) => ({
+          resumeData: {
+            ...state.resumeData,
+            projects: state.resumeData.projects.filter((_, i) => i !== index)
+          }
+        })),
+
+      toggleSection: (section) => 
+        set((state) => ({
+          activeSections: state.activeSections.includes(section)
+            ? state.activeSections.filter(s => s !== section)
+            : [...state.activeSections, section]
+        })),
+
       saveResume: async (userId) => {
         set({ isSaving: true });
         try {
-          const { resumeData } = get();
-          const response = await axios.post(
-            `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/resumes/`,
-            { user_id: userId, data: resumeData },
-            { withCredentials: true }
-          );
-          return response.data.resume_id;
+          const { resumeData, manualResumeId } = get();
+          const state = (loadState(APP_STATE_KEY) || {}) as any;
+          const token = (state.authToken as string) || '';
+          if (!token) throw new Error('Authentication required');
+
+          const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+          const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+
+          if (!manualResumeId) {
+            const res = await fetch(`${API_BASE}/api/v1/resumes/`, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ data: resumeData }),
+            });
+            if (!res.ok) throw new Error(await res.text());
+            const payload = await res.json();
+            const newId = payload?.resume_id as number | undefined;
+            if (newId) set({ manualResumeId: newId });
+            return newId || null;
+          }
+
+          const res = await fetch(`${API_BASE}/api/v1/resumes/${manualResumeId}/versions`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ version_name: 'Manual Edit', data: resumeData }),
+          });
+          if (!res.ok) throw new Error(await res.text());
+          return manualResumeId;
         } catch (err) {
           console.error('Failed to save resume:', err);
           return null;

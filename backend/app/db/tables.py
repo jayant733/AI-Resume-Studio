@@ -20,6 +20,7 @@ class User(Base):
     stripe_customer_id: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True)
     subscription_tier: Mapped[str] = mapped_column(String(50), default="free") # free | pro
     subscription_status: Mapped[str] = mapped_column(String(50), default="active")
+    role: Mapped[str] = mapped_column(String(50), default="user")  # user | recruiter
     credits: Mapped[int] = mapped_column(Integer, default=3)
     ai_calls_count: Mapped[int] = mapped_column(Integer, default=0)
     resumes_generated_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -135,3 +136,4 @@ class AppliedJob(Base):
 
     user = relationship("User", back_populates="applied_jobs")
     output = relationship("GeneratedOutput")
+    job = relationship("Job", secondary="generated_outputs", viewonly=True, uselist=False)

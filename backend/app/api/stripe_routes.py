@@ -7,17 +7,102 @@ import stripe
 
 from app.db.session import get_db
 from app.db.tables import User
+from app.services.auth_service import get_optional_current_user
 from app.utils.config import get_settings
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-@router.post("/create-checkout-session")
-def create_checkout_session(email: str, target_tier: str, db: Session = Depends(get_db)):
+@router.get("/prices")
+def list_prices():
+    """
+    Returns active Stripe products + recurring prices (monthly/yearly) for dynamic pricing UI.
+    """
     settings = get_settings()
     stripe.api_key = settings.stripe_api_key
 
-    user = db.query(User).filter(User.email == email).first()
+    # Local/mock mode: provide stable fake prices without calling Stripe.
+    if settings.stripe_api_key == "sk_test_mock":
+        return {
+            "plans": [
+                {
+                    "id": "free",
+                    "name": "Free",
+                    "description": "Everything you need to get started.",
+                    "prices": {
+                        "month": {"id": "price_free_month", "unit_amount": 0, "currency": "usd", "interval": "month"},
+                        "year": {"id": "price_free_year", "unit_amount": 0, "currency": "usd", "interval": "year"},
+                    },
+                },
+                {
+                    "id": "pro",
+                    "name": "Pro",
+                    "description": "Perfect for serious job seekers.",
+                    "prices": {
+                        "month": {"id": settings.stripe_price_pro, "unit_amount": 1500, "currency": "usd", "interval": "month"},
+                        "year": {"id": f"{settings.stripe_price_pro}_year", "unit_amount": 15000, "currency": "usd", "interval": "year"},
+                    },
+                },
+                {
+                    "id": "premium",
+                    "name": "Premium",
+                    "description": "Advanced tools and higher limits.",
+                    "prices": {
+                        "month": {"id": settings.stripe_price_premium, "unit_amount": 2900, "currency": "usd", "interval": "month"},
+                        "year": {"id": f"{settings.stripe_price_premium}_year", "unit_amount": 29000, "currency": "usd", "interval": "year"},
+                    },
+                },
+            ]
+        }
+
+    prices = stripe.Price.list(active=True, limit=100, expand=["data.product"]).data
+    plans: dict[str, dict] = {}
+    for price in prices:
+        if getattr(price, "type", None) != "recurring":
+            continue
+        recurring = getattr(price, "recurring", None)
+        if not recurring or getattr(recurring, "interval", None) not in {"month", "year"}:
+            continue
+        product = getattr(price, "product", None)
+        if not product or not getattr(product, "active", False):
+            continue
+
+        product_id = product.id
+        plan = plans.setdefault(
+            product_id,
+            {
+                "id": product_id,
+                "name": product.name,
+                "description": getattr(product, "description", None) or "",
+                "prices": {},
+            },
+        )
+        plan["prices"][recurring.interval] = {
+            "id": price.id,
+            "unit_amount": price.unit_amount or 0,
+            "currency": price.currency,
+            "interval": recurring.interval,
+        }
+
+    return {"plans": list(plans.values())}
+
+
+@router.post("/create-checkout-session")
+def create_checkout_session(
+    target_tier: str | None = None,
+    price_id: str | None = None,
+    email: str | None = None,
+    current_user: User | None = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+):
+    settings = get_settings()
+    stripe.api_key = settings.stripe_api_key
+
+    user = None
+    if current_user is not None:
+        user = current_user
+    elif email:
+        user = db.query(User).filter(User.email == email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")
 
@@ -25,13 +110,15 @@ def create_checkout_session(email: str, target_tier: str, db: Session = Depends(
         "pro": settings.stripe_price_pro,
         "premium": settings.stripe_price_premium
     }
-    price_id = price_map.get(target_tier)
     if not price_id:
-        raise HTTPException(status_code=400, detail="Invalid tier.")
+        price_id = price_map.get(target_tier or "")
+    if not price_id and (target_tier or "") != "free":
+        raise HTTPException(status_code=400, detail="Missing or invalid price selection.")
 
     try:
+        frontend_url = (settings.backend_cors_origins.split(",")[0] or "http://localhost:3000").rstrip("/")
         if settings.stripe_api_key == "sk_test_mock":
-            return {"url": f"http://localhost:3000/pricing?mock_success=true&tier={target_tier}&email={email}"}
+            return {"url": f"{frontend_url}/pricing?mock_success=true&tier={target_tier or ''}&email={user.email}"}
 
         session = stripe.checkout.Session.create(
             payment_method_types=['card'],
@@ -40,10 +127,10 @@ def create_checkout_session(email: str, target_tier: str, db: Session = Depends(
                 'quantity': 1,
             }],
             mode='subscription',
-            success_url=f"{settings.backend_cors_origins}/dashboard?success=true&session_id={{CHECKOUT_SESSION_ID}}",
-            cancel_url=f"{settings.backend_cors_origins}/pricing?canceled=true",
+            success_url=f"{frontend_url}/pricing?status=success&session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{frontend_url}/pricing?status=cancel",
             customer_email=user.email,
-            metadata={"user_id": user.id, "tier": target_tier}
+            metadata={"user_id": user.id, "tier": target_tier or ""}
         )
         return {"url": session.url}
     except Exception as e:
